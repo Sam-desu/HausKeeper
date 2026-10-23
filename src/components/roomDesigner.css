@@ -1,0 +1,229 @@
+/* Room designer. Uses your existing tokens (--brass, --slate, --ink-soft);
+   the fallbacks only apply if a token isn't defined. */
+
+.rd-layout {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.rd-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rd-unsaved {
+  font-size: 12.5px;
+  color: var(--slate, #5b6572);
+  margin-right: 4px;
+}
+
+/* ---- palette ---- */
+.rd-palette {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.rd-hint {
+  font-size: 12.5px;
+  color: var(--slate, #5b6572);
+  margin: 0 0 14px;
+}
+.rd-group + .rd-group {
+  margin-top: 16px;
+}
+.rd-group h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.rd-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.rd-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px 8px;
+  background: #fff;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: grab;
+  user-select: none;
+}
+.rd-chip:hover {
+  border-color: var(--brass, #b08a3e);
+  background: var(--brass-tint, #faf5e8);
+}
+.rd-chip:active {
+  cursor: grabbing;
+}
+.rd-chip:focus-visible,
+.rd-swatch:focus-visible {
+  outline: 2px solid var(--brass, #b08a3e);
+  outline-offset: 2px;
+}
+.rd-chip-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.rd-chip-label {
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* ---- canvas card ---- */
+.rd-canvas {
+  min-width: 0;
+  overflow: hidden;
+}
+.rd-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+}
+.rd-ctl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rd-ctl-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.rd-floor-name {
+  font-size: 12.5px;
+  color: var(--slate, #5b6572);
+  min-width: 108px;
+}
+.rd-swatches {
+  display: flex;
+  gap: 6px;
+}
+.rd-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.rd-swatch.is-on {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--brass, #b08a3e);
+}
+.rd-select {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.2));
+  border-radius: 6px;
+  background: #fff;
+}
+.rd-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  margin-left: auto;
+}
+
+.rd-board {
+  display: flex;
+  justify-content: center;
+  padding: 20px 16px;
+  background: var(--paper-2, #efede8);
+}
+.rd-stage {
+  position: relative;
+  flex: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 10px 24px -14px rgba(0, 0, 0, 0.45);
+}
+.rd-stage.is-drop {
+  outline: 2px dashed var(--brass, #b08a3e);
+  outline-offset: 5px;
+}
+.rd-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.rd-empty span {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  color: var(--ink-soft, #3c4450);
+}
+
+.rd-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+}
+.rd-sel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--slate, #5b6572);
+}
+.rd-sel strong {
+  color: inherit;
+  font-weight: 600;
+}
+.rd-warn {
+  color: #b03a2e;
+  font-weight: 600;
+}
+.rd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.rd-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line, rgba(0, 0, 0, 0.15));
+  margin: 0 2px;
+}
+
+/* ---- narrow screens: canvas first, palette below ---- */
+@media (max-width: 900px) {
+  .rd-layout {
+    grid-template-columns: 1fr;
+  }
+  .rd-canvas {
+    order: 1;
+  }
+  .rd-palette {
+    order: 2;
+    position: static;
+    max-height: none;
+  }
+  .rd-items {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  }
+  .rd-check {
+    margin-left: 0;
+  }
+}

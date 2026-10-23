@@ -7,6 +7,7 @@ import { RequireRole, RequirePerm, NotFound } from './components/Guards.jsx';
 import AppShell from './layouts/AppShell.jsx';
 import { TENANT_NAV, ADMIN_NAV } from './nav.js';
 import { HomeScreen, LoginScreen, RegisterScreen } from './components/Auth.jsx';
+import { RoomDesigner } from './components/RoomDesigner.jsx';
 import AdminMap from './components/canvas.jsx';
 import {
   TenantDashboard, RoomPicker, RoomDetail, Booking, MoveIn,
@@ -45,6 +46,7 @@ export default function App() {
                 <Route path="rooms/:roomId/book" element={<Booking />} />
                 <Route path="move-in" element={<MoveIn />} />
                 <Route path="move-out" element={<MoveOut />} />
+                <Route path="room-designer" element={<RoomDesigner />} />
                 <Route path="billing" element={<TenantBilling />} />
                 <Route path="maintenance" element={<TenantMaintenance />} />
                 <Route path="profile" element={<Profile />} />

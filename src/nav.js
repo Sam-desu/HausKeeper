@@ -6,6 +6,7 @@ export const TENANT_NAV = [
       { to: '/tenant/rooms', label: 'Find a room', tag: 'RM' },
       { to: '/tenant/move-in', label: 'Move-in form', tag: 'IN' },
       { to: '/tenant/move-out', label: 'Move-out request', tag: 'OUT' },
+      { to: '/tenant/room-designer', label: 'Room Designer', tag: 'RD'}
     ],
   },
   {

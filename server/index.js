@@ -19,6 +19,7 @@ import chatRoutes from './routes/chat.js';
 import { expireReservations } from './services/reservations.js';
 import { notifyOverdueInvoices } from './services/billing.js';
 import { attachUser } from './middleware/auth.js';
+import roomLayoutsRouter from './routes/roomLayouts.js';
 
 const app = express();
 app.use(cors());
@@ -42,6 +43,7 @@ app.use('/api/map', mapRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/room-layouts', roomLayoutsRouter);
 
 
 
