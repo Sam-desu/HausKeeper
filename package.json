@@ -1,0 +1,40 @@
+{
+  "name": "hauskeeper-react",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node --watch server/index.js",
+    "seed:rooms": "node server/seed/seedRooms.js",
+    "seed:users": "node server/seed/seedUsers.js",
+    "seed:invoices": "node server/seed/seedInvoices.js",
+    "seed:tickets": "node server/seed/seedTickets.js",
+    "seed:map": "node server/seed/seedMap.js",
+    "seed:all": "npm run seed:rooms && npm run seed:map && npm run seed:users && npm run seed:invoices && npm run seed:tickets",
+    "reset-db": "node server/scripts/resetDb.js",
+    "fresh": "npm run reset-db -- --yes && npm run seed:all"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "konva": "^10.3.3",
+    "mongodb": "^7.7.0",
+    "mongoose": "^9.10.3",
+    "multer": "^2.4.0",
+    "nodemailer": "^7.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-konva": "^18.2.16",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.1"
+  }
+}
