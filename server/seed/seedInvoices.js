@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './guard.js';
 import mongoose from 'mongoose';
 import Invoice from '../models/Invoice.js';
 import Tenant from '../models/Tenant.js';

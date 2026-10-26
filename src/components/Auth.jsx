@@ -34,7 +34,7 @@ export function HomeScreen() {
     <div className="home">
       <div className="home-nav">
         <div className="brand" onClick={goHome}>
-          <div className="mark">①</div>
+          <div className="mark">🗝</div>
           <div>
             <div className="brand-name">HausKeeper</div>
           </div>
@@ -73,19 +73,19 @@ export function HomeScreen() {
         </div>
         <div className="hero-visual">
           <div className="tilt-card tilt-card-1">
-            <div className="ring">①</div>
+            <div className="ring">🗝</div>
             <div className="room-label">Room</div>
             <div className="room-num">101</div>
             <span className="pill ok">Available</span>
           </div>
           <div className="tilt-card tilt-card-2">
-            <div className="ring">①</div>
+            <div className="ring">🗝</div>
             <div className="room-label">Room</div>
             <div className="room-num">104</div>
             <span className="pill warn">1 spot left</span>
           </div>
           <div className="tilt-card tilt-card-3">
-            <div className="ring">①</div>
+            <div className="ring">🗝</div>
             <div className="room-label">Room</div>
             <div className="room-num">207</div>
             <span className="pill bad">Occupied</span>

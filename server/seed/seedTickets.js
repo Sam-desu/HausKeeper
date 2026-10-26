@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './guard.js';
 import mongoose from 'mongoose';
 import Ticket from '../models/Ticket.js';
 import Tenant from '../models/Tenant.js';

@@ -34,7 +34,7 @@ export default function AppShell({ portal, nav }) {
           <span className="dot green" />
         </div>
         <div className="brand">
-          <div className="mark">&gt;_</div>
+          <div className="mark">🗝</div>
           <div>
             <div className="brand-name">HausKeeper<span className="cursor">▌</span></div>
             <div className="brand-sub">boardinghouse-mgmt-system@main</div>

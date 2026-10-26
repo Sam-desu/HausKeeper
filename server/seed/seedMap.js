@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './guard.js';
 import mongoose from 'mongoose';
 import Room from '../models/Room.js';
 

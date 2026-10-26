@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './seed/guard.js';
 import mongoose from 'mongoose';
 import Room from './models/Room.js';
 import Tenant from './models/Tenant.js';
