@@ -1,2 +1,9 @@
-server/uploads/
+@'
+node_modules
+dist
 .env
+.env.*
+!.env.example
+server/uploads/
+*.log
+'@ | Set-Content .gitignore -Encoding ASCII
