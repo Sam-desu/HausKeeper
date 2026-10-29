@@ -37,7 +37,7 @@ async function getTransport() {
   return transport;
 }
 
-async function sendEmail(to, subject, text) {
+async function sendEmail(to, subject, text, html) {
   const t = await getTransport();
   if (!t) return;
   await t.sendMail({
@@ -45,6 +45,7 @@ async function sendEmail(to, subject, text) {
     to,
     subject,
     text,
+    ...(html ? { html } : {}),
   });
 }
 
@@ -68,6 +69,7 @@ export async function notifyTenant(tenantId, opts) {
     const message = opts.template
       ? fill(settings.notifTemplates[opts.template], { name: tenant.name, ...opts.vars })
       : opts.message;
+    const html = typeof opts.html === 'function' ? opts.html(tenant, settings) : opts.html;
 
     await Notification.create({
       recipientType: 'tenant',
@@ -80,7 +82,7 @@ export async function notifyTenant(tenantId, opts) {
 
     const sends = [];
     if (settings.notifChannels?.email && emailConfigured() && tenant.email)
-      sends.push(sendEmail(tenant.email, `${settings.propertyName}: ${opts.title}`, message));
+  sends.push(sendEmail(tenant.email, `${settings.propertyName}: ${opts.title}`, message, html));
     if (settings.notifChannels?.sms && smsConfigured() && tenant.phone)
       sends.push(sendSms(tenant.phone, message));
     for (const r of await Promise.allSettled(sends))

@@ -1225,7 +1225,7 @@ export function Profile() {
           <button className="btn secondary" onClick={updatePassword} disabled={busy === "password"}>
             {busy === "password" ? "Updating…" : "Update password"}
           </button>
-          <div className="divider" />
+          {/* <div className="divider" />
           <h3 style={{ marginBottom: 6, fontSize: 14 }}>Notification preferences</h3>
           <p style={{ color: "var(--slate)", fontSize: 12, marginBottom: 8 }}>Coming soon. These aren&apos;t saved yet.</p>
           <div className="checklist-item">
@@ -1239,7 +1239,7 @@ export function Profile() {
           <div className="checklist-item">
             <span style={{ flex: 1 }}>Community announcements</span>
             <input type="checkbox" disabled />
-          </div>
+          </div> */}
         </div>
       </div>
     </>
