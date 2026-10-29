@@ -211,7 +211,7 @@ export function TenantSupport() {
           title="Support team"
           subtitle="Replies usually arrive during office hours"
           empty="No messages yet. Say hello or describe what you need help with."
-          placeholder="Type your message… (Enter to send)"
+          placeholder="Type your message…"
         />
       </div>
     </>
@@ -285,7 +285,7 @@ export function StaffSupport() {
               ) : null
             }
             empty="No messages in this conversation."
-            placeholder="Write a reply… (Enter to send)"
+            placeholder="Write a reply…"
             onSent={reload}
           />
         ) : (
@@ -314,7 +314,7 @@ function TenantBubble({ onSeen, onClose }) {
         path="/support/mine"
         self="tenant"
         empty="Message the property staff here. Any of our team can reply, and you'll get a notification."
-        placeholder="Message support… (Enter to send)"
+        placeholder="Message support…"
         onSeen={onSeen}
       />
       <div className="chat-note">
@@ -367,7 +367,7 @@ function StaffBubble({ onSeen, onClose }) {
             </button>
           )}
           empty="No messages in this conversation."
-          placeholder="Write a reply… (Enter to send)"
+          placeholder="Write a reply…"
           onSeen={onSeen}
         />
       </div>

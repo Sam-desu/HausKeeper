@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { peso, METHOD_LABELS } from "../data.js";
 import { StatusPill } from "../components/Common.jsx";
-import { NewTicketBody } from "../components/Modals.jsx";
+import { NewTicketBody, HouseRulesModal } from "../components/Modals.jsx";
 import { useApi } from "../useApi.js";
 import { api } from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -14,7 +14,10 @@ import { useModal } from "../context/ModalContext.jsx";
 // YYYY-MM-DD in the browser's local time (matches what a date input produces)
 const todayLocal = () => new Date().toLocaleDateString("en-CA");
 const fmtDateTime = (iso) =>
-  new Date(iso).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
+  new Date(iso).toLocaleString("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
 const Loading = () => (
   <div className="empty">
@@ -46,10 +49,13 @@ export function TenantDashboard() {
   const tix = useApi("/tickets/mine");
   const res = useApi("/reservations/mine");
   const form = useApi("/move-in/mine");
-  const room = useApi(user.room ? `/rooms/${encodeURIComponent(user.room)}` : null);
+  const room = useApi(
+    user.room ? `/rooms/${encodeURIComponent(user.room)}` : null,
+  );
   const [busy, setBusy] = useState(false);
 
-  if ((inv.loading && !inv.data) || (tix.loading && !tix.data)) return <Loading />;
+  if ((inv.loading && !inv.data) || (tix.loading && !tix.data))
+    return <Loading />;
   if (inv.error || tix.error)
     return (
       <LoadError
@@ -67,13 +73,19 @@ export function TenantDashboard() {
   const openBal = unpaid.reduce((s, i) => s + i.amount, 0);
   const hasOverdue = unpaid.some((i) => i.status === "overdue");
   // the server derives "overdue" from due dates, so show that instead of a stored flag
-  const status = hasOverdue ? "overdue" : user.status === "overdue" ? "active" : user.status;
+  const status = hasOverdue
+    ? "overdue"
+    : user.status === "overdue"
+      ? "active"
+      : user.status;
 
   const pending = (res.data || []).find((r) => r.status === "pending");
   const moveInForm = form.data;
   const roomInfo = room.data;
   const needsMoveIn =
-    !form.loading && (pending || user.room) && (!moveInForm || moveInForm.status === "rejected");
+    !form.loading &&
+    (pending || user.room) &&
+    (!moveInForm || moveInForm.status === "rejected");
 
   const cancelReservation = async () => {
     setBusy(true);
@@ -96,7 +108,10 @@ export function TenantDashboard() {
           <h1>{user.name.split(" ")[0]}'s dashboard</h1>
           <p>Here's what's happening with your room and account this week.</p>
         </div>
-        <button className="btn brass" onClick={() => navigate("/tenant/billing")}>
+        <button
+          className="btn brass"
+          onClick={() => navigate("/tenant/billing")}
+        >
           Pay balance
         </button>
       </div>
@@ -118,10 +133,15 @@ export function TenantDashboard() {
             <strong>Room {pending.room} is held for you</strong>
             <div style={{ fontSize: 12.5, marginTop: 4 }}>
               Move-in {pending.moveInDate} · {pending.lease} lease · hold ends{" "}
-              {fmtDateTime(pending.holdUntil)}. Staff will confirm your move-in before then.
+              {fmtDateTime(pending.holdUntil)}. Staff will confirm your move-in
+              before then.
             </div>
           </div>
-          <button className="btn secondary small" onClick={cancelReservation} disabled={busy}>
+          <button
+            className="btn secondary small"
+            onClick={cancelReservation}
+            disabled={busy}
+          >
             {busy ? "Cancelling…" : "Cancel reservation"}
           </button>
         </div>
@@ -130,19 +150,32 @@ export function TenantDashboard() {
       {needsMoveIn ? (
         <div
           className="card card-pad"
-          style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
+          style={{
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
         >
           <div style={{ flex: 1, minWidth: 220 }}>
             <strong>
-              {moveInForm?.status === "rejected" ? "Your move-in form needs changes" : "Complete your move-in form"}
+              {moveInForm?.status === "rejected"
+                ? "Your move-in form needs changes"
+                : "Complete your move-in form"}
             </strong>
-            <div style={{ fontSize: 12.5, color: "var(--slate)", marginTop: 4 }}>
+            <div
+              style={{ fontSize: 12.5, color: "var(--slate)", marginTop: 4 }}
+            >
               {moveInForm?.status === "rejected"
                 ? moveInForm.reviewNote
                 : "Staff might need your details and a copy of your ID."}
             </div>
           </div>
-          <button className="btn brass small" onClick={() => navigate("/tenant/move-in")}>
+          <button
+            className="btn brass small"
+            onClick={() => navigate("/tenant/move-in")}
+          >
             {moveInForm ? "Fix and resubmit" : "Fill in the form"}
           </button>
         </div>
@@ -166,12 +199,18 @@ export function TenantDashboard() {
           <span className="eyebrow">Balance due</span>
           <div className="val">{peso(openBal)}</div>
           <div className={`delta ${openBal > 0 ? "down" : "up"}`}>
-            {hasOverdue ? "Payment overdue" : openBal > 0 ? "Payment pending" : "All settled"}
+            {hasOverdue
+              ? "Payment overdue"
+              : openBal > 0
+                ? "Payment pending"
+                : "All settled"}
           </div>
         </div>
         <div className="card kpi">
           <span className="eyebrow">Open tickets</span>
-          <div className="val">{tickets.filter((x) => x.status !== "resolved").length}</div>
+          <div className="val">
+            {tickets.filter((x) => x.status !== "resolved").length}
+          </div>
           <div className="delta">of {tickets.length} total filed</div>
         </div>
         <div className="card kpi">
@@ -203,7 +242,10 @@ export function TenantDashboard() {
             <p style={{ color: "var(--slate)" }}>No invoices yet.</p>
           )}
           <div style={{ marginTop: 14 }}>
-            <button className="linklike" onClick={() => navigate("/tenant/billing")}>
+            <button
+              className="linklike"
+              onClick={() => navigate("/tenant/billing")}
+            >
               View all billing →
             </button>
           </div>
@@ -216,16 +258,23 @@ export function TenantDashboard() {
                 <div className="avatar-sm">{tk.category[0]}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{tk.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--slate)" }}>Filed {tk.created}</div>
+                  <div style={{ fontSize: 12, color: "var(--slate)" }}>
+                    Filed {tk.created}
+                  </div>
                 </div>
                 <StatusPill status={tk.status} />
               </div>
             ))
           ) : (
-            <p style={{ color: "var(--slate)" }}>No maintenance requests filed.</p>
+            <p style={{ color: "var(--slate)" }}>
+              No maintenance requests filed.
+            </p>
           )}
           <div style={{ marginTop: 14 }}>
-            <button className="linklike" onClick={() => navigate("/tenant/maintenance")}>
+            <button
+              className="linklike"
+              onClick={() => navigate("/tenant/maintenance")}
+            >
               File a new request →
             </button>
           </div>
@@ -246,7 +295,9 @@ export function RoomPicker() {
   const { data, loading, error, reload } = useApi(
     `/rooms?status=available${type ? `&type=${encodeURIComponent(type)}` : ""}`,
   );
-  const rooms = (data || []).filter((r) => r.id.toLowerCase().includes(q.toLowerCase()));
+  const rooms = (data || []).filter((r) =>
+    r.id.toLowerCase().includes(q.toLowerCase()),
+  );
 
   const setFilter = (key, value) =>
     setParams(
@@ -265,7 +316,10 @@ export function RoomPicker() {
         <div>
           <span className="eyebrow">Housing</span>
           <h1>Find a room</h1>
-          <p>Browse currently available rooms. Tap a card for full details and to start a reservation.</p>
+          <p>
+            Browse currently available rooms. Tap a card for full details and to
+            start a reservation.
+          </p>
         </div>
       </div>
       <div className="toolbar">
@@ -275,7 +329,10 @@ export function RoomPicker() {
           value={q}
           onChange={(e) => setFilter("q", e.target.value)}
         />
-        <select value={type} onChange={(e) => setFilter("type", e.target.value)}>
+        <select
+          value={type}
+          onChange={(e) => setFilter("type", e.target.value)}
+        >
           <option value="">All types</option>
           {["Single", "Double", "Suite"].map((t) => (
             <option key={t} value={t}>
@@ -305,7 +362,15 @@ export function RoomPicker() {
                   </h4>
                   <div className="price">
                     {peso(r.price)}{" "}
-                    <span style={{ color: "var(--slate)", fontWeight: 400, fontSize: 11 }}>/ month</span>
+                    <span
+                      style={{
+                        color: "var(--slate)",
+                        fontWeight: 400,
+                        fontSize: 11,
+                      }}
+                    >
+                      / month
+                    </span>
                   </div>
                   <div className="meta">
                     {r.amenities.slice(0, 2).map((a) => (
@@ -315,7 +380,9 @@ export function RoomPicker() {
                   <button
                     className="btn secondary small"
                     style={{ width: "100%", justifyContent: "center" }}
-                    onClick={() => navigate(`/tenant/rooms/${encodeURIComponent(r.id)}`)}
+                    onClick={() =>
+                      navigate(`/tenant/rooms/${encodeURIComponent(r.id)}`)
+                    }
                   >
                     View details
                   </button>
@@ -337,7 +404,12 @@ export function RoomPicker() {
 export function RoomDetail() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { data: r, loading, error, status } = useApi(`/rooms/${encodeURIComponent(roomId)}`);
+  const {
+    data: r,
+    loading,
+    error,
+    status,
+  } = useApi(`/rooms/${encodeURIComponent(roomId)}`);
 
   if (loading && !r) return <Loading />;
   if (error)
@@ -345,7 +417,10 @@ export function RoomDetail() {
       <div className="empty">
         <h3>{status === 404 ? "Room not found" : "Couldn't load this room"}</h3>
         <p>{error}</p>
-        <button className="btn secondary small" onClick={() => navigate("/tenant/rooms")}>
+        <button
+          className="btn secondary small"
+          onClick={() => navigate("/tenant/rooms")}
+        >
           Back to rooms
         </button>
       </div>
@@ -353,7 +428,11 @@ export function RoomDetail() {
 
   return (
     <>
-      <button className="linklike" style={{ marginBottom: 14 }} onClick={() => navigate(-1)}>
+      <button
+        className="linklike"
+        style={{ marginBottom: 14 }}
+        onClick={() => navigate(-1)}
+      >
         ← Back to results
       </button>
       <div className="grid grid-2">
@@ -371,12 +450,23 @@ export function RoomDetail() {
           <h1 style={{ marginTop: 6 }}>{r.id}</h1>
           <div className="price" style={{ fontSize: 22, margin: "10px 0" }}>
             {peso(r.price)}{" "}
-            <span style={{ color: "var(--slate)", fontWeight: 400, fontSize: 12 }}>/ month</span>
+            <span
+              style={{ color: "var(--slate)", fontWeight: 400, fontSize: 12 }}
+            >
+              / month
+            </span>
           </div>
           <StatusPill status={r.status} />
           <div className="divider" />
           <h3 style={{ fontSize: 14, marginBottom: 8 }}>Amenities</h3>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: 16,
+            }}
+          >
             {r.amenities.map((a) => (
               <span className="pill neutral" key={a}>
                 {a}
@@ -386,7 +476,9 @@ export function RoomDetail() {
           <button
             className="btn brass"
             disabled={r.status !== "available"}
-            onClick={() => navigate(`/tenant/rooms/${encodeURIComponent(r.id)}/book`)}
+            onClick={() =>
+              navigate(`/tenant/rooms/${encodeURIComponent(r.id)}/book`)
+            }
           >
             Reserve this room
           </button>
@@ -409,13 +501,19 @@ export function Booking() {
   const [f, setF] = useState({ date: "", lease: "12 months", requests: "" });
   const [busy, setBusy] = useState(false);
 
-  if ((room.loading && !room.data) || (mine.loading && !mine.data)) return <Loading />;
+  if ((room.loading && !room.data) || (mine.loading && !mine.data))
+    return <Loading />;
   if (room.error)
     return (
       <div className="empty">
-        <h3>{room.status === 404 ? "Room not found" : "Couldn't load this room"}</h3>
+        <h3>
+          {room.status === 404 ? "Room not found" : "Couldn't load this room"}
+        </h3>
         <p>{room.error}</p>
-        <button className="btn secondary small" onClick={() => navigate("/tenant/rooms")}>
+        <button
+          className="btn secondary small"
+          onClick={() => navigate("/tenant/rooms")}
+        >
           Back to rooms
         </button>
       </div>
@@ -439,7 +537,11 @@ export function Booking() {
         <p>{blocked}</p>
         <button
           className="btn secondary small"
-          onClick={() => navigate(pending || user.room ? "/tenant/dashboard" : "/tenant/rooms")}
+          onClick={() =>
+            navigate(
+              pending || user.room ? "/tenant/dashboard" : "/tenant/rooms",
+            )
+          }
         >
           {pending || user.room ? "Go to dashboard" : "Back to rooms"}
         </button>
@@ -448,14 +550,20 @@ export function Booking() {
 
   const continueFromStep1 = () => {
     if (!f.date) return toast("Choose your preferred move-in date");
-    if (f.date < todayLocal()) return toast("The move-in date can't be in the past");
+    if (f.date < todayLocal())
+      return toast("The move-in date can't be in the past");
     setStep(2);
   };
 
   const confirm = async () => {
     setBusy(true);
     try {
-      await api.post("/reservations", { room: r.id, date: f.date, lease: f.lease, requests: f.requests });
+      await api.post("/reservations", {
+        room: r.id,
+        date: f.date,
+        lease: f.lease,
+        requests: f.requests,
+      });
       toast(`Room ${r.id} is held for 48 hours. Staff will follow up.`);
       navigate("/tenant/dashboard");
     } catch (err) {
@@ -476,8 +584,16 @@ export function Booking() {
       </div>
       <div className="card card-pad" style={{ maxWidth: 560 }}>
         <div className="steps">
-          <div className={`step ${step >= 1 ? (step > 1 ? "done" : "active") : ""}`}>1 · Move-in date</div>
-          <div className={`step ${step >= 2 ? (step > 2 ? "done" : "active") : ""}`}>2 · Your details</div>
+          <div
+            className={`step ${step >= 1 ? (step > 1 ? "done" : "active") : ""}`}
+          >
+            1 · Move-in date
+          </div>
+          <div
+            className={`step ${step >= 2 ? (step > 2 ? "done" : "active") : ""}`}
+          >
+            2 · Your details
+          </div>
           <div className={`step ${step >= 3 ? "active" : ""}`}>3 · Confirm</div>
         </div>
 
@@ -494,7 +610,10 @@ export function Booking() {
             </div>
             <div className="field">
               <label>Lease length</label>
-              <select value={f.lease} onChange={(e) => setF((s) => ({ ...s, lease: e.target.value }))}>
+              <select
+                value={f.lease}
+                onChange={(e) => setF((s) => ({ ...s, lease: e.target.value }))}
+              >
                 <option>6 months</option>
                 <option>12 months</option>
                 <option>24 months</option>
@@ -521,7 +640,10 @@ export function Booking() {
             <div className="field">
               <label>Email</label>
               <input value={user.email} disabled />
-              <div className="hint">These come from your account. Update them under Profile &amp; settings.</div>
+              <div className="hint">
+                These come from your account. Update them under Profile &amp;
+                settings.
+              </div>
             </div>
             <div className="field">
               <label>Special requests (optional)</label>
@@ -529,7 +651,9 @@ export function Booking() {
                 maxLength={500}
                 placeholder="e.g. ground floor preferred"
                 value={f.requests}
-                onChange={(e) => setF((s) => ({ ...s, requests: e.target.value }))}
+                onChange={(e) =>
+                  setF((s) => ({ ...s, requests: e.target.value }))
+                }
               />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -547,7 +671,11 @@ export function Booking() {
           <>
             <div
               className="card card-pad"
-              style={{ background: "var(--brass-tint)", borderColor: "var(--brass)", marginBottom: 16 }}
+              style={{
+                background: "var(--brass-tint)",
+                borderColor: "var(--brass)",
+                marginBottom: 16,
+              }}
             >
               <strong>{r.id}</strong> · {r.type} · {peso(r.price)}/mo
               <br />
@@ -561,12 +689,19 @@ export function Booking() {
                 </>
               ) : null}
             </div>
-            <p style={{ color: "var(--slate)", fontSize: 13, marginBottom: 16 }}>
-              By confirming, the room is held for you for 48 hours. Staff will confirm your move-in during that time,
-              otherwise the hold is released.
+            <p
+              style={{ color: "var(--slate)", fontSize: 13, marginBottom: 16 }}
+            >
+              By confirming, the room is held for you for 48 hours. Staff will
+              confirm your move-in during that time, otherwise the hold is
+              released.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn secondary" onClick={() => setStep(2)} disabled={busy}>
+              <button
+                className="btn secondary"
+                onClick={() => setStep(2)}
+                disabled={busy}
+              >
                 Back
               </button>
               <button className="btn brass" onClick={confirm} disabled={busy}>
@@ -587,6 +722,19 @@ const MAX_ID_BYTES = 5 * 1024 * 1024;
 function MoveInForm({ existing, onSaved }) {
   const { user } = useAuth();
   const toast = useToast();
+  const { openModal } = useModal();
+
+  const showRules = () =>
+    openModal({
+      title: "House rules & lease terms",
+      Body: HouseRulesModal,
+      bodyProps: {
+        onAgree: () => setF((s) => ({ ...s, agreed: true })),
+      },
+      cancelLabel: "Close",
+      submitLabel: "I agree",
+    });
+
   const [f, setF] = useState({
     legalName: existing?.legalName || user.name || "",
     dob: existing?.dob || "",
@@ -605,14 +753,23 @@ function MoveInForm({ existing, onSaved }) {
   const set = (key) => (e) => setF((s) => ({ ...s, [key]: e.target.value }));
 
   const submit = async () => {
-    if (!f.agreed) return toast("You need to agree to the house rules and lease terms");
-    if (!file && !existing?.hasId) return toast("Please upload a photo or scan of your ID");
-    if (file && file.size > MAX_ID_BYTES) return toast("The ID file must be 5 MB or smaller");
+    if (!f.agreed)
+      return toast("You need to agree to the house rules and lease terms");
+    if (!file && !existing?.hasId)
+      return toast("Please upload a photo or scan of your ID");
+    if (file && file.size > MAX_ID_BYTES)
+      return toast("The ID file must be 5 MB or smaller");
 
     const fd = new FormData();
     for (const k of [
-      "legalName", "dob", "email", "phone", "govId",
-      "emergencyName", "emergencyRelationship", "emergencyPhone",
+      "legalName",
+      "dob",
+      "email",
+      "phone",
+      "govId",
+      "emergencyName",
+      "emergencyRelationship",
+      "emergencyPhone",
     ]) {
       fd.append(k, f[k]);
     }
@@ -640,7 +797,8 @@ function MoveInForm({ existing, onSaved }) {
             <>
               <span className="pill ok">Approved</span>
               <p style={{ color: "var(--slate)", fontSize: 13, marginTop: 8 }}>
-                Your move-in details were verified by staff. Contact the front desk if anything needs to change.
+                Your move-in details were verified by staff. Contact the front
+                desk if anything needs to change.
               </p>
             </>
           )}
@@ -663,15 +821,27 @@ function MoveInForm({ existing, onSaved }) {
         </div>
       ) : null}
 
-      <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <fieldset
+        disabled={locked}
+        style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+      >
         <div className="field-row">
           <div className="field">
             <label>Full legal name</label>
-            <input placeholder="Juan Dela Cruz" value={f.legalName} onChange={set("legalName")} />
+            <input
+              placeholder="Juan Dela Cruz"
+              value={f.legalName}
+              onChange={set("legalName")}
+            />
           </div>
           <div className="field">
             <label>Date of birth</label>
-            <input type="date" max={todayLocal()} value={f.dob} onChange={set("dob")} />
+            <input
+              type="date"
+              max={todayLocal()}
+              value={f.dob}
+              onChange={set("dob")}
+            />
           </div>
         </div>
         <div className="field-row">
@@ -681,7 +851,12 @@ function MoveInForm({ existing, onSaved }) {
           </div>
           <div className="field">
             <label>Phone</label>
-            <input type="tel" placeholder="0917 000 0000" value={f.phone} onChange={set("phone")} />
+            <input
+              type="tel"
+              placeholder="0917 000 0000"
+              value={f.phone}
+              onChange={set("phone")}
+            />
           </div>
         </div>
         <div className="field">
@@ -716,11 +891,18 @@ function MoveInForm({ existing, onSaved }) {
           </div>
           <div className="field">
             <label>Relationship</label>
-            <input value={f.emergencyRelationship} onChange={set("emergencyRelationship")} />
+            <input
+              value={f.emergencyRelationship}
+              onChange={set("emergencyRelationship")}
+            />
           </div>
           <div className="field">
             <label>Phone</label>
-            <input type="tel" value={f.emergencyPhone} onChange={set("emergencyPhone")} />
+            <input
+              type="tel"
+              value={f.emergencyPhone}
+              onChange={set("emergencyPhone")}
+            />
           </div>
         </div>
         <div className="divider" />
@@ -730,16 +912,25 @@ function MoveInForm({ existing, onSaved }) {
               type="checkbox"
               style={{ width: "auto", marginRight: 8 }}
               checked={f.agreed}
-              onChange={(e) => setF((s) => ({ ...s, agreed: e.target.checked }))}
+              onChange={(e) =>
+                setF((s) => ({ ...s, agreed: e.target.checked }))
+              }
             />
-            I agree to the house rules and lease terms
+            I agree to the{" "}
+            <button type="button" className="link-btn" onClick={showRules}>
+              house rules and lease terms
+            </button>
           </label>
         </div>
       </fieldset>
 
       {!locked ? (
         <button className="btn brass" onClick={submit} disabled={busy}>
-          {busy ? "Submitting…" : existing ? "Resubmit form" : "Submit move-in form"}
+          {busy
+            ? "Submitting…"
+            : existing
+              ? "Resubmit form"
+              : "Submit move-in form"}
         </button>
       ) : null}
     </div>
@@ -764,7 +955,11 @@ export function MoveIn() {
           <p>Complete this form to finalize your move-in paperwork.</p>
         </div>
       </div>
-      <MoveInForm existing={form} onSaved={setSaved} key={form?.updatedAt ?? "new"} />
+      <MoveInForm
+        existing={form}
+        onSaved={setSaved}
+        key={form?.updatedAt ?? "new"}
+      />
     </>
   );
 }
@@ -794,11 +989,19 @@ export function MoveOut() {
 
   const submit = () => {
     if (!f.date) return toast("Choose your planned move-out date");
-    if (f.date < todayLocal()) return toast("The move-out date can't be in the past");
-    run(() => api.post("/tenants/me/move-out", f), "Move-out request submitted");
+    if (f.date < todayLocal())
+      return toast("The move-out date can't be in the past");
+    run(
+      () => api.post("/tenants/me/move-out", f),
+      "Move-out request submitted",
+    );
   };
 
-  const cancel = () => run(() => api.post("/tenants/me/move-out/cancel"), "Move-out request cancelled");
+  const cancel = () =>
+    run(
+      () => api.post("/tenants/me/move-out/cancel"),
+      "Move-out request cancelled",
+    );
 
   return (
     <>
@@ -806,7 +1009,10 @@ export function MoveOut() {
         <div>
           <span className="eyebrow">Housing</span>
           <h1>Move-out request</h1>
-          <p>Let us know your planned move-out date so we can schedule your inspection and deposit return.</p>
+          <p>
+            Let us know your planned move-out date so we can schedule your
+            inspection and deposit return.
+          </p>
         </div>
       </div>
       <div className="card card-pad" style={{ maxWidth: 560 }}>
@@ -820,7 +1026,8 @@ export function MoveOut() {
               {user.moveOut?.reason ? ` · ${user.moveOut.reason}` : ""}
             </p>
             <p style={{ color: "var(--slate)", fontSize: 13 }}>
-              Your move-out request is being processed. A staff member will confirm your final inspection date.
+              Your move-out request is being processed. A staff member will
+              confirm your final inspection date.
             </p>
             <div className="progress-track" style={{ marginTop: 16 }}>
               <div className="progress-fill" style={{ width: "40%" }} />
@@ -839,16 +1046,26 @@ export function MoveOut() {
               <span>Inspection</span>
               <span>Deposit return</span>
             </div>
-            <button className="btn secondary small" style={{ marginTop: 18 }} onClick={cancel} disabled={busy}>
+            <button
+              className="btn secondary small"
+              style={{ marginTop: 18 }}
+              onClick={cancel}
+              disabled={busy}
+            >
               {busy ? "Cancelling…" : "Cancel request"}
             </button>
           </>
         ) : !user.room ? (
           <>
-            <p style={{ color: "var(--slate)", fontSize: 13, marginBottom: 14 }}>
+            <p
+              style={{ color: "var(--slate)", fontSize: 13, marginBottom: 14 }}
+            >
               You don&apos;t have a room to move out of right now.
             </p>
-            <button className="btn secondary small" onClick={() => navigate("/tenant/rooms")}>
+            <button
+              className="btn secondary small"
+              onClick={() => navigate("/tenant/rooms")}
+            >
               Find a room
             </button>
           </>
@@ -865,7 +1082,12 @@ export function MoveOut() {
             </div>
             <div className="field">
               <label>Reason for leaving</label>
-              <select value={f.reason} onChange={(e) => setF((s) => ({ ...s, reason: e.target.value }))}>
+              <select
+                value={f.reason}
+                onChange={(e) =>
+                  setF((s) => ({ ...s, reason: e.target.value }))
+                }
+              >
                 <option>End of lease</option>
                 <option>Relocating</option>
                 <option>Found other housing</option>
@@ -874,7 +1096,10 @@ export function MoveOut() {
             </div>
             <div className="field">
               <label>Notes for the property manager (optional)</label>
-              <textarea value={f.notes} onChange={(e) => setF((s) => ({ ...s, notes: e.target.value }))} />
+              <textarea
+                value={f.notes}
+                onChange={(e) => setF((s) => ({ ...s, notes: e.target.value }))}
+              />
             </div>
             <button className="btn brass" onClick={submit} disabled={busy}>
               {busy ? "Submitting…" : "Submit request"}
@@ -915,8 +1140,8 @@ export function TenantBilling() {
         toast(
           r.paid
             ? `Payment received for ${paidId}`
-            : "We haven't received confirmation yet. Give it a minute and refresh this page."
-        )
+            : "We haven't received confirmation yet. Give it a minute and refresh this page.",
+        ),
       )
       .catch((err) => toast(err.message))
       .finally(reload);
@@ -926,9 +1151,13 @@ export function TenantBilling() {
   if (error) return <LoadError error={error} onRetry={reload} />;
 
   const invoices = data || [];
-  const unpaid = invoices.filter((i) => i.status !== "paid").sort((a, b) => a.due.localeCompare(b.due));
+  const unpaid = invoices
+    .filter((i) => i.status !== "paid")
+    .sort((a, b) => a.due.localeCompare(b.due));
   const outstanding = unpaid.reduce((s, i) => s + i.amount, 0);
-  const totalPaid = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.amount, 0);
+  const totalPaid = invoices
+    .filter((i) => i.status === "paid")
+    .reduce((s, i) => s + i.amount, 0);
 
   // Online: sends the tenant to PayMongo's page. Without a PayMongo key the server pays instantly (simulated).
   const pay = async (id) => {
@@ -991,9 +1220,13 @@ export function TenantBilling() {
                   <td style={{ fontFamily: "var(--mono)" }}>{i.id}</td>
                   <td>
                     {i.period}
-                    {i.kind === "maintenance" ? <span className="tag-mini">Repair</span> : null}
+                    {i.kind === "maintenance" ? (
+                      <span className="tag-mini">Repair</span>
+                    ) : null}
                     {i.description ? (
-                      <div style={{ fontSize: 12, color: "var(--slate)" }}>{i.description}</div>
+                      <div style={{ fontSize: 12, color: "var(--slate)" }}>
+                        {i.description}
+                      </div>
                     ) : null}
                   </td>
                   <td>{peso(i.amount)}</td>
@@ -1003,13 +1236,23 @@ export function TenantBilling() {
                   </td>
                   <td>
                     {i.status !== "paid" ? (
-                      <button className="btn brass small" onClick={() => pay(i.id)} disabled={paying === i.id}>
-                        {paying === i.id ? "Opening…" : gateway ? "Pay online" : "Pay now"}
+                      <button
+                        className="btn brass small"
+                        onClick={() => pay(i.id)}
+                        disabled={paying === i.id}
+                      >
+                        {paying === i.id
+                          ? "Opening…"
+                          : gateway
+                            ? "Pay online"
+                            : "Pay now"}
                       </button>
                     ) : (
                       <span style={{ color: "var(--slate)", fontSize: 12 }}>
                         Paid {i.paidOn}
-                        {i.method ? ` · ${METHOD_LABELS[i.method] || i.method}` : ""}
+                        {i.method
+                          ? ` · ${METHOD_LABELS[i.method] || i.method}`
+                          : ""}
                       </span>
                     )}
                   </td>
@@ -1039,7 +1282,12 @@ export function TenantBilling() {
 export function NewTicketModalBody({ onDone, registerSubmit }) {
   const { closeModal } = useModal();
   const toast = useToast();
-  const [state, setState] = useState({ title: "", category: "Plumbing", priority: "medium", notes: "" });
+  const [state, setState] = useState({
+    title: "",
+    category: "Plumbing",
+    priority: "medium",
+    notes: "",
+  });
 
   // errors thrown here are shown as a toast by the modal shell
   registerSubmit(async () => {
@@ -1079,7 +1327,11 @@ export function TenantMaintenance() {
           <h1>Maintenance requests</h1>
           <p>Report issues in your room and track their progress.</p>
         </div>
-        <button className="btn brass" onClick={openNewTicketModal} disabled={!user.room}>
+        <button
+          className="btn brass"
+          onClick={openNewTicketModal}
+          disabled={!user.room}
+        >
           + New request
         </button>
       </div>
@@ -1091,7 +1343,11 @@ export function TenantMaintenance() {
       <div className="card">
         {tickets.length ? (
           tickets.map((tk) => (
-            <div className="checklist-item" style={{ padding: "16px 20px" }} key={tk.id}>
+            <div
+              className="checklist-item"
+              style={{ padding: "16px 20px" }}
+              key={tk.id}
+            >
               <div className="avatar-sm">{tk.category[0]}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{tk.title}</div>
@@ -1100,7 +1356,15 @@ export function TenantMaintenance() {
                   {tk.assignedName ? ` · Assigned to ${tk.assignedName}` : ""}
                 </div>
                 {tk.notes ? (
-                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>"{tk.notes}"</div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--ink-soft)",
+                      marginTop: 4,
+                    }}
+                  >
+                    "{tk.notes}"
+                  </div>
                 ) : null}
                 {tk.charge ? (
                   <div style={{ fontSize: 12.5, marginTop: 6 }}>
@@ -1108,14 +1372,21 @@ export function TenantMaintenance() {
                     {tk.charge.status === "paid" ? (
                       "paid"
                     ) : (
-                      <button className="linklike" style={{ fontSize: 12.5 }} onClick={() => navigate("/tenant/billing")}>
-                        {tk.charge.status === "overdue" ? "overdue, pay now" : "pay now"}
+                      <button
+                        className="linklike"
+                        style={{ fontSize: 12.5 }}
+                        onClick={() => navigate("/tenant/billing")}
+                      >
+                        {tk.charge.status === "overdue"
+                          ? "overdue, pay now"
+                          : "pay now"}
                       </button>
                     )}
                   </div>
                 ) : null}
               </div>
-              <StatusPill status={tk.priority} /> <StatusPill status={tk.status} />
+              <StatusPill status={tk.priority} />{" "}
+              <StatusPill status={tk.status} />
             </div>
           ))
         ) : (
@@ -1160,7 +1431,8 @@ export function Profile() {
 
   const updatePassword = async () => {
     if (!pw.current) return toast("Enter your current password");
-    if (pw.next.length < 4) return toast("New password must be at least 4 characters");
+    if (pw.next.length < 4)
+      return toast("New password must be at least 4 characters");
     setBusy("password");
     try {
       await api.put("/tenants/me/password", pw);
@@ -1200,7 +1472,11 @@ export function Profile() {
             <label>Emergency contact</label>
             <input value={f.emergency} onChange={set("emergency")} />
           </div>
-          <button className="btn brass" onClick={saveProfile} disabled={busy === "profile"}>
+          <button
+            className="btn brass"
+            onClick={saveProfile}
+            disabled={busy === "profile"}
+          >
             {busy === "profile" ? "Saving…" : "Save changes"}
           </button>
         </div>
@@ -1211,7 +1487,9 @@ export function Profile() {
             <input
               type="password"
               value={pw.current}
-              onChange={(e) => setPw((s) => ({ ...s, current: e.target.value }))}
+              onChange={(e) =>
+                setPw((s) => ({ ...s, current: e.target.value }))
+              }
             />
           </div>
           <div className="field">
@@ -1222,7 +1500,11 @@ export function Profile() {
               onChange={(e) => setPw((s) => ({ ...s, next: e.target.value }))}
             />
           </div>
-          <button className="btn secondary" onClick={updatePassword} disabled={busy === "password"}>
+          <button
+            className="btn secondary"
+            onClick={updatePassword}
+            disabled={busy === "password"}
+          >
             {busy === "password" ? "Updating…" : "Update password"}
           </button>
           {/* <div className="divider" />

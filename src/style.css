@@ -1128,6 +1128,17 @@ td .empty,
   margin-left: auto;
 }
 
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--brass, #b08d57);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn:hover { opacity: 0.8; }
+
 /* ============ AUTH SCREENS ============ */
 /* left 42% is a pigeonhole wall; the card sits centered in the remaining space */
 .authwrap {
