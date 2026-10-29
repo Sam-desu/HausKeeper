@@ -9,6 +9,7 @@ import { TENANT_NAV, ADMIN_NAV } from './nav.js';
 import { HomeScreen, LoginScreen, RegisterScreen } from './components/Auth.jsx';
 import { RoomDesigner } from './components/RoomDesigner.jsx';
 import AdminMap from './components/canvas.jsx';
+import { TenantSupport, StaffSupport } from './components/SupportChat.jsx';
 import {
   TenantDashboard, RoomPicker, RoomDetail, Booking, MoveIn,
   MoveOut, TenantBilling, TenantMaintenance, Profile,
@@ -50,6 +51,7 @@ export default function App() {
                 <Route path="billing" element={<TenantBilling />} />
                 <Route path="maintenance" element={<TenantMaintenance />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="support" element={<TenantSupport />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
 
@@ -68,6 +70,7 @@ export default function App() {
                 <Route path="staff" element={<RequirePerm perm="staff"><Staff /></RequirePerm>} />
                 <Route path="settings" element={<RequirePerm perm="settings"><Settings /></RequirePerm>} />
                 <Route path="map" element={<AdminMap />} />
+                <Route path="support" element={<StaffSupport />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
 

@@ -139,7 +139,7 @@ export function TenantDashboard() {
             <div style={{ fontSize: 12.5, color: "var(--slate)", marginTop: 4 }}>
               {moveInForm?.status === "rejected"
                 ? moveInForm.reviewNote
-                : "Staff need your details and a copy of your ID before move-in."}
+                : "Staff might need your details and a copy of your ID."}
             </div>
           </div>
           <button className="btn brass small" onClick={() => navigate("/tenant/move-in")}>

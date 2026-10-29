@@ -25,6 +25,7 @@ import paymentRoutes from './routes/payments.js';
 import notificationRoutes from './routes/notifications.js';
 import chatRoutes from './routes/chat.js';
 import roomLayoutsRouter from './routes/roomLayouts.js';
+import supportRoutes from './routes/support.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -99,6 +100,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/room-layouts', roomLayoutsRouter);
+app.use('/api/support', supportRoutes);
 app.use('/api', (_req, res) => res.status(404).json({ message: 'Not found' }));
 
 // Serve the built frontend (npm run build → dist/), with a fallback so refreshing /admin/rooms works

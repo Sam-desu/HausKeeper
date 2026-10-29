@@ -14,6 +14,7 @@ export const TENANT_NAV = [
     items: [
       { to: '/tenant/billing', label: 'Billing & payments', tag: '₱' },
       { to: '/tenant/maintenance', label: 'Maintenance requests', tag: 'FX' },
+      { to: '/tenant/support', label: 'Contact support', tag: 'SP' },
       { to: '/tenant/profile', label: 'Profile & settings', tag: 'ME' },
     ],
   },
@@ -30,6 +31,7 @@ export const ADMIN_NAV = [
       { to: '/admin/rooms', label: 'Rooms', tag: 'RM', perm: 'rooms' },
       { to: '/admin/billing', label: 'Billing & payments', tag: '₱', perm: 'billing' },
       { to: '/admin/maintenance', label: 'Maintenance', tag: 'FX', perm: 'maintenance' },
+      { to: '/admin/support', label: 'Support inbox', tag: 'SP' },
     ],
   },
   {
