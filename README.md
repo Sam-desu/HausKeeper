@@ -4,5 +4,5 @@
 
 <ul> 
   <li> @ShadowGhoul27 </li>
-  <li> joneerosesantos@gmail.com </li>
+  <li> joneerosesantos </li>
 </ul>
