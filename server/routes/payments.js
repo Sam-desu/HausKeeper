@@ -11,19 +11,24 @@ const router = Router();
 // Where PayMongo sends the tenant back to after paying (the Vite dev server by default)
 const appUrl = () => (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
 
+// Simulated (instant, free) payment is for development only. In production it needs an explicit opt-in.
+const simulatedAllowed = () =>
+  process.env.NODE_ENV !== 'production' || process.env.ALLOW_SIMULATED_PAYMENTS === 'true';
+
 // GET /api/payments/config → lets the website say whether online payment is live
 router.get('/config', requireAuth, (_req, res) => {
   res.json({ gateway: paymongoEnabled(), methods: paymongoEnabled() ? ['GCash', 'Maya', 'Card'] : [] });
 });
 
 // POST /api/payments/checkout/:id → { url } to send the tenant to PayMongo's payment page.
-// With no PayMongo key configured it pays instantly (simulated) and returns { simulated: true }.
+// With no PayMongo key configured it pays instantly (simulated, development only) and returns { simulated: true }.
 router.post('/checkout/:id', requireTenant, async (req, res) => {
   const invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.user.id });
   if (!invoice) throw new HttpError(404, 'Invoice not found');
   if (invoice.status === 'paid') throw new HttpError(409, 'Invoice is already paid');
 
   if (!paymongoEnabled()) {
+    if (!simulatedAllowed()) throw new HttpError(503, 'Online payment is not available right now. Please pay at the front desk.');
     const paid = await settleInvoice({ _id: invoice._id, tenant: req.user.id });
     return res.json({ simulated: true, invoice: paid || invoice });
   }

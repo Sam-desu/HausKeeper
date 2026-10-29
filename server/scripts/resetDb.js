@@ -1,17 +1,8 @@
-
 import 'dotenv/config';
+import '../seed/guard.js'; // refuses to run when NODE_ENV=production (loaded after dotenv so a .env value counts)
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import mongoose from 'mongoose';
-import Room from '../models/Room.js';
-import Tenant from '../models/Tenant.js';
-import Staff from '../models/Staff.js';
-import Invoice from '../models/Invoice.js';
-import Ticket from '../models/Ticket.js';
-import Reservation from '../models/Reservation.js';
-import MoveIn from '../models/MoveIn.js';
-import Settings from '../models/Settings.js';
-import Counter from '../models/Counter.js';
 
 const UPLOADS = path.join(import.meta.dirname, '..', 'uploads');
 
@@ -26,12 +17,14 @@ if (!process.argv.includes('--yes')) {
 }
 
 // deleteMany (not dropDatabase) so the unique indexes on email/username survive
-for (const Model of [Room, Tenant, Staff, Invoice, Ticket, Reservation, MoveIn, Settings, Counter]) {
-  const { deletedCount } = await Model.deleteMany({});
-  console.log(`${Model.modelName}: removed ${deletedCount}`);
+const collections = (await mongoose.connection.db.collections()).filter((c) => !c.collectionName.startsWith('system.'));
+for (const c of collections) {
+  const { deletedCount } = await c.deleteMany({});
+  console.log(`${c.collectionName}: removed ${deletedCount}`);
 }
 
 await fs.rm(UPLOADS, { recursive: true, force: true });
+await fs.mkdir(UPLOADS, { recursive: true });
 console.log('Uploaded ID files: removed');
 
 console.log(`\n"${dbName}" is now empty.`);

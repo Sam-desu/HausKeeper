@@ -932,9 +932,13 @@ export function Reservations() {
               rows.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <button className="linklike" onClick={() => navigate(`/admin/tenants/${r.tenant}`)}>
-                      {r.tenantName || "—"}
-                    </button>
+                    {r.tenant ? (
+                      <button className="linklike" onClick={() => navigate(`/admin/tenants/${r.tenant}`)}>
+                        {r.tenantName || "—"}
+                      </button>
+                    ) : (
+                      <span style={{ color: "var(--slate)" }}>Deleted tenant</span>
+                    )}
                     <div style={{ fontSize: 11.5, color: "var(--slate)" }}>{r.id}</div>
                   </td>
                   <td>
@@ -1064,9 +1068,13 @@ export function MoveInReviews() {
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
               <div className="avatar-sm">{initials(f.tenantName || "?")}</div>
               <div style={{ flex: 1, minWidth: 180 }}>
-                <button className="linklike" style={{ fontWeight: 600 }} onClick={() => navigate(`/admin/tenants/${f.tenant}`)}>
-                  {f.tenantName}
-                </button>
+                {f.tenant ? (
+                  <button className="linklike" style={{ fontWeight: 600 }} onClick={() => navigate(`/admin/tenants/${f.tenant}`)}>
+                    {f.tenantName}
+                  </button>
+                ) : (
+                  <span style={{ fontWeight: 600, color: "var(--slate)" }}>Deleted tenant</span>
+                )}
                 <div style={{ fontSize: 11.5, color: "var(--slate)" }}>Updated {fmtDateTime(f.updatedAt)}</div>
               </div>
               <StatusPill status={f.status} />
