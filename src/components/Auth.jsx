@@ -36,7 +36,7 @@ export function HomeScreen() {
     <div className="home">
       <div className="home-nav">
         <div className="brand" onClick={goHome}>
-          <div className="mark">①</div>
+          <div className="mark">🗝</div>
           <div>
             <div className="brand-name">HausKeeper</div>
           </div>
@@ -75,19 +75,19 @@ export function HomeScreen() {
         </div>
         <div className="hero-visual">
           <div className="tilt-card tilt-card-1">
-            <div className="ring">①</div>
+            <div className="ring">🗝</div>
             <div className="room-label">Room</div>
             <div className="room-num">101</div>
             <span className="pill ok">Available</span>
           </div>
           <div className="tilt-card tilt-card-2">
-            <div className="ring">①</div>
+            <div className="ring">🗝</div>
             <div className="room-label">Room</div>
             <div className="room-num">104</div>
             <span className="pill warn">1 spot left</span>
           </div>
           <div className="tilt-card tilt-card-3">
-            <div className="ring">①</div>
+            <div className="ring">🗝</div>
             <div className="room-label">Room</div>
             <div className="room-num">207</div>
             <span className="pill bad">Occupied</span>
@@ -139,7 +139,7 @@ export function HomeScreen() {
           <div className="rooms-preview-grid">
             {available.map((r) => (
               <div className="rp-card" key={r.id}>
-                <div className="ring">①</div>
+                <div className="ring">🗝</div>
                 <div className="room-label">Room · {r.type}</div>
                 <div className="room-num">{r.id.replace("R-", "")}</div>
                 <div className="rp-meta">
@@ -182,14 +182,14 @@ export function HomeScreen() {
 
 export function LoginScreen() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get('role') === 'admin' ? 'admin' : 'tenant';
+  const tab = params.get("role") === "admin" ? "admin" : "tenant";
   const { role, login } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const [idVal, setIdVal] = useState('');
-  const [pass, setPass] = useState('');
-  const [error, setError] = useState('');
+  const [idVal, setIdVal] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [captcha, setCaptcha] = useState(null); // the reCAPTCHA token once the box is ticked
   const [captchaOn, setCaptchaOn] = useState(false);
@@ -197,23 +197,27 @@ export function LoginScreen() {
 
   // already signed in (or just signed in) → go where they were headed, or to their dashboard
   if (role) {
-    const base = role === 'staff' ? '/admin' : '/tenant';
+    const base = role === "staff" ? "/admin" : "/tenant";
     const from = location.state?.from;
-    const target = from?.pathname?.startsWith(base + '/')
-      ? from.pathname + (from.search || '')
+    const target = from?.pathname?.startsWith(base + "/")
+      ? from.pathname + (from.search || "")
       : portalHome(role);
     return <Navigate to={target} replace />;
   }
 
   const setTab = (t) => {
     setParams({ role: t }, { replace: true });
-    setError('');
+    setError("");
     captchaRef.current?.reset();
   };
 
   const submit = async () => {
     if (!idVal.trim() || !pass) {
-      setError(tab === 'tenant' ? 'Enter both email and password.' : 'Enter both username and password.');
+      setError(
+        tab === "tenant"
+          ? "Enter both email and password."
+          : "Enter both username and password.",
+      );
       return;
     }
     if (captchaOn && !captcha) {
@@ -221,10 +225,19 @@ export function LoginScreen() {
       return;
     }
     setBusy(true);
-    setError('');
+    setError("");
     try {
-      const user = await login(tab === 'admin' ? 'staff' : 'tenant', idVal, pass, captcha);
-      toast(tab === 'tenant' ? `Welcome back, ${user.name.split(' ')[0]}` : `Signed in as ${user.name}`);
+      const user = await login(
+        tab === "admin" ? "staff" : "tenant",
+        idVal,
+        pass,
+        captcha,
+      );
+      toast(
+        tab === "tenant"
+          ? `Welcome back, ${user.name.split(" ")[0]}`
+          : `Signed in as ${user.name}`,
+      );
     } catch (err) {
       setError(err.message);
       captchaRef.current?.reset(); // each captcha tick works only once
@@ -237,24 +250,64 @@ export function LoginScreen() {
     <div className="authwrap">
       <div className="authcard">
         <div className="card-pad" style={{ paddingTop: 30 }}>
-          <button className="linklike" style={{ marginBottom: 14 }} onClick={() => navigate('/')}>&larr; Back to home</button>
+          <button
+            className="linklike"
+            style={{ marginBottom: 14 }}
+            onClick={() => navigate("/")}
+          >
+            &larr; Back to home
+          </button>
           <h1 style={{ fontSize: 20, marginBottom: 4 }}>HausKeeper</h1>
-          <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 10.5, margin: '-2px 0 6px' }}>boardinghouse management system</p>
-          <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 12, margin: '6px 0 20px' }}>sign in to continue — role determines which portal loads</p>
+          <p
+            style={{
+              color: "var(--slate)",
+              fontFamily: "var(--mono)",
+              fontSize: 10.5,
+              margin: "-2px 0 6px",
+            }}
+          >
+            boardinghouse management system
+          </p>
+          <p
+            style={{
+              color: "var(--slate)",
+              fontFamily: "var(--mono)",
+              fontSize: 12,
+              margin: "6px 0 20px",
+            }}
+          >
+            sign in to continue — role determines which portal loads
+          </p>
 
           <div className="steps" style={{ marginBottom: 20 }}>
-            <div className={`step ${tab === 'tenant' ? 'active' : ''}`} style={{ cursor: 'pointer' }} onClick={() => setTab('tenant')}>tenant login</div>
-            <div className={`step ${tab === 'admin' ? 'active' : ''}`} style={{ cursor: 'pointer' }} onClick={() => setTab('admin')}>staff / admin login</div>
+            <div
+              className={`step ${tab === "tenant" ? "active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setTab("tenant")}
+            >
+              tenant login
+            </div>
+            <div
+              className={`step ${tab === "admin" ? "active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setTab("admin")}
+            >
+              staff / admin login
+            </div>
           </div>
 
           <div className="field">
-            <label>{tab === 'tenant' ? 'Email' : 'Username'}</label>
+            <label>{tab === "tenant" ? "Email" : "Username"}</label>
             <input
               type="text"
-              placeholder={tab === 'tenant' ? 'name@gmail.com' : 'staff or admin'}
+              placeholder={
+                tab === "tenant" ? "name@gmail.com" : "staff or admin"
+              }
               value={idVal}
               onChange={(e) => setIdVal(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+              }}
             />
           </div>
           <div className="field">
@@ -264,21 +317,61 @@ export function LoginScreen() {
               placeholder="••••••••"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+              }}
             />
           </div>
-
-          <Captcha ref={captchaRef} onChange={setCaptcha} onConfig={setCaptchaOn} />
-
-          {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
-
-          <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={submit} disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in'}
-          </button>
-          {tab === 'tenant' ? (
-            <p className="switch-line">no account? <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => navigate('/register')}>register here</button></p>
+              {tab === "tenant" ? (
+            <p>
+              <button
+                className="linklike"
+                style={{ fontSize: 15.5 }}
+                onClick={() => navigate("/forgot-password")}
+              >
+                forgot password?
+              </button>
+            </p>
           ) : (
-            <p className="switch-line">staff accounts are created by a property manager in Settings → Staff.</p>
+            <p className="switch-line">
+            </p>
+          )}
+          <Captcha
+            ref={captchaRef}
+            onChange={setCaptcha}
+            onConfig={setCaptchaOn}
+          />
+
+          {error ? (
+            <div className="pill bad" style={{ marginBottom: 14 }}>
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            className="btn brass"
+            style={{ width: "100%", justifyContent: "center", marginBottom: 8 }}
+            onClick={submit}
+            disabled={busy}
+          >
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+          {tab === "tenant" ? (
+            <p className="switch-line">
+              no account?{" "}
+              <button
+                className="linklike"
+                style={{ fontSize: 15.5 }}
+                onClick={() => navigate("/register")}
+              >
+                register here
+              </button>
+            </p>
+          ) : (
+            <p className="switch-line">
+              staff accounts are created by a property manager in Settings →
+              Staff.
+            </p>
           )}
         </div>
       </div>
@@ -290,13 +383,19 @@ export function RegisterScreen() {
   const { role, register } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [f, setF] = useState({ name: '', email: '', phone: '', pass: '', pass2: '' });
-  const [error, setError] = useState('');
+  const [f, setF] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    pass: "",
+    pass2: "",
+  });
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState('form'); // 'form' → 'code'
-  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState("form"); // 'form' → 'code'
+  const [otp, setOtp] = useState("");
   const [cooldown, setCooldown] = useState(0); // seconds until a new code may be requested
-  const [mailNote, setMailNote] = useState('');
+  const [mailNote, setMailNote] = useState("");
   const [captcha, setCaptcha] = useState(null); // reCAPTCHA token for the "send code" step
   const [captchaOn, setCaptchaOn] = useState(false);
   const captchaRef = useRef(null);
@@ -309,27 +408,49 @@ export function RegisterScreen() {
   }, [cooldown]);
 
   // signed in (including right after registering) → straight to the room finder
-  if (role) return <Navigate to={role === 'staff' ? '/admin/dashboard' : '/tenant/rooms'} replace />;
+  if (role)
+    return (
+      <Navigate
+        to={role === "staff" ? "/admin/dashboard" : "/tenant/rooms"}
+        replace
+      />
+    );
 
-  const details = () => ({ name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone.trim(), pass: f.pass });
+  const details = () => ({
+    name: f.name.trim(),
+    email: f.email.trim().toLowerCase(),
+    phone: f.phone.trim(),
+    pass: f.pass,
+  });
 
   // step 1: check the form, then email a 6-digit code
   const sendCode = async () => {
     const { name, email } = details();
-    if (!name || !email || !f.pass) return setError('Name, email, and password are required.');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Enter a valid email address.');
-    if (f.pass.length < 4) return setError('Password must be at least 4 characters.');
-    if (f.pass !== f.pass2) return setError('Passwords do not match.');
-    if (step === 'form' && captchaOn && !captcha) return setError('Please tick "I\'m not a robot".');
+    if (!name || !email || !f.pass)
+      return setError("Name, email, and password are required.");
+    if (!/^\S+@\S+\.\S+$/.test(email))
+      return setError("Enter a valid email address.");
+    if (f.pass.length < 4)
+      return setError("Password must be at least 4 characters.");
+    if (f.pass !== f.pass2) return setError("Passwords do not match.");
+    if (step === "form" && captchaOn && !captcha)
+      return setError('Please tick "I\'m not a robot".');
 
     setBusy(true);
-    setError('');
+    setError("");
     try {
-      const res = await api.post('/auth/register/otp', { ...details(), captcha: step === 'form' ? captcha : null });
+      const res = await api.post("/auth/register/otp", {
+        ...details(),
+        captcha: step === "form" ? captcha : null,
+      });
       setCaptcha(null); // a captcha tick works only once
-      setMailNote(res.emailed ? '' : 'Email is not set up on the server yet, so the code was printed in the server console.');
-      setOtp('');
-      setStep('code');
+      setMailNote(
+        res.emailed
+          ? ""
+          : "Email is not set up on the server yet, so the code was printed in the server console.",
+      );
+      setOtp("");
+      setStep("code");
       setCooldown(60);
     } catch (err) {
       setError(err.message);
@@ -341,12 +462,15 @@ export function RegisterScreen() {
 
   // step 2: check the code and create the account
   const verify = async () => {
-    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit code from your email.');
+    if (!/^\d{6}$/.test(otp))
+      return setError("Enter the 6-digit code from your email.");
     setBusy(true);
-    setError('');
+    setError("");
     try {
       await register({ ...details(), otp });
-      toast(`Account created — welcome, ${f.name.trim().split(' ')[0]}. Pick a room to get started.`);
+      toast(
+        `Account created — welcome, ${f.name.trim().split(" ")[0]}. Pick a room to get started.`,
+      );
     } catch (err) {
       setError(err.message);
     } finally {
@@ -358,19 +482,283 @@ export function RegisterScreen() {
     <div className="authwrap">
       <div className="authcard">
         <div className="card-pad" style={{ paddingTop: 30 }}>
-          <button className="linklike" style={{ marginBottom: 14 }} onClick={() => navigate('/')}>&larr; Back to home</button>
+          <button
+            className="linklike"
+            style={{ marginBottom: 14 }}
+            onClick={() => navigate("/")}
+          >
+            &larr; Back to home
+          </button>
+          <h1 style={{ fontSize: 20, marginBottom: 4 }}>HausKeeper</h1>
+          <p
+            style={{
+              color: "var(--slate)",
+              fontFamily: "var(--mono)",
+              fontSize: 10.5,
+              margin: "-2px 0 6px",
+            }}
+          >
+            boardinghouse management system
+          </p>
+          <p
+            style={{
+              color: "var(--slate)",
+              fontFamily: "var(--mono)",
+              fontSize: 12,
+              margin: "6px 0 20px",
+            }}
+          >
+            create a tenant account — admin accounts are issued by property
+            staff
+          </p>
+
+          {step === "code" ? (
+            <>
+              <p style={{ fontSize: 13, margin: "0 0 14px" }}>
+                We sent a 6-digit code to{" "}
+                <strong>{f.email.trim().toLowerCase()}</strong>. It expires in
+                10 minutes.
+              </p>
+              {mailNote ? (
+                <div className="pill warn" style={{ marginBottom: 12 }}>
+                  {mailNote}
+                </div>
+              ) : null}
+              <div className="field">
+                <label>Verification code</label>
+                <input
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") verify();
+                  }}
+                />
+              </div>
+
+              {error ? (
+                <div className="pill bad" style={{ marginBottom: 14 }}>
+                  {error}
+                </div>
+              ) : null}
+
+              <button
+                className="btn brass"
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  marginBottom: 8,
+                }}
+                onClick={verify}
+                disabled={busy}
+              >
+                {busy ? "Checking…" : "Verify & create account"}
+              </button>
+              <p className="switch-line">
+                <button
+                  className="linklike"
+                  style={{ fontSize: 15.5 }}
+                  onClick={sendCode}
+                  disabled={busy || cooldown > 0}
+                >
+                  {cooldown > 0 ? `resend code in ${cooldown}s` : "resend code"}
+                </button>
+                {" · "}
+                <button
+                  className="linklike"
+                  style={{ fontSize: 15.5 }}
+                  onClick={() => {
+                    setStep("form");
+                    setError("");
+                  }}
+                >
+                  change details
+                </button>
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="field">
+                <label>Full name</label>
+                <input
+                  value={f.name}
+                  onChange={set("name")}
+                  placeholder="Juan Dela Cruz"
+                />
+              </div>
+              <div className="field">
+                <label>Email</label>
+                <input
+                  value={f.email}
+                  onChange={set("email")}
+                  placeholder="juan.delacruz@gmail.com"
+                />
+              </div>
+              <div className="field">
+                <label>Phone</label>
+                <input
+                  value={f.phone}
+                  onChange={set("phone")}
+                  placeholder="0917 000 0000"
+                />
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Password</label>
+                  <input
+                    type="password"
+                    value={f.pass}
+                    onChange={set("pass")}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="field">
+                  <label>Confirm password</label>
+                  <input
+                    type="password"
+                    value={f.pass2}
+                    onChange={set("pass2")}
+                    placeholder="••••••••"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") sendCode();
+                    }}
+                  />
+                </div>
+              </div>
+
+              <Captcha
+                ref={captchaRef}
+                onChange={setCaptcha}
+                onConfig={setCaptchaOn}
+              />
+
+              {error ? (
+                <div className="pill bad" style={{ marginBottom: 14 }}>
+                  {error}
+                </div>
+              ) : null}
+
+              <button
+                className="btn brass"
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  marginBottom: 8,
+                }}
+                onClick={sendCode}
+                disabled={busy}
+              >
+                {busy ? "Sending code…" : "Send verification code"}
+              </button>
+              <p className="switch-line">
+                already have an account?{" "}
+                <button
+                  className="linklike"
+                  style={{ fontSize: 15.5 }}
+                  onClick={() => navigate("/login")}
+                >
+                  sign in
+                </button>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ForgotPasswordScreen() {
+  const { role } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [step, setStep] = useState('email'); // 'email' → 'reset'
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [mailNote, setMailNote] = useState('');
+  const [captcha, setCaptcha] = useState(null);
+  const [captchaOn, setCaptchaOn] = useState(false);
+  const captchaRef = useRef(null);
+ 
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+ 
+  // already signed in → nothing to reset here
+  if (role) return <Navigate to={role === 'staff' ? '/admin/dashboard' : '/tenant/rooms'} replace />;
+ 
+  const cleanEmail = email.trim().toLowerCase();
+ 
+  // step 1: email a 6-digit code
+  const sendCode = async () => {
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return setError('Enter a valid email address.');
+    if (step === 'email' && captchaOn && !captcha) return setError('Please tick "I\'m not a robot".');
+ 
+    setBusy(true);
+    setError('');
+    try {
+      const res = await api.post('/auth/password/forgot', { email: cleanEmail, captcha: step === 'email' ? captcha : null });
+      setCaptcha(null); // a captcha tick works only once
+      setMailNote(res.emailed ? '' : 'Email is not set up on the server yet, so the code was printed in the server console.');
+      setOtp('');
+      setStep('reset');
+      setCooldown(60);
+    } catch (err) {
+      setError(err.message);
+      captchaRef.current?.reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+ 
+  // step 2: check the code and set the new password
+  const reset = async () => {
+    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit code from your email.');
+    if (pass.length < 9) return setError('Password must be at least 4 characters.');
+    if (pass !== pass2) return setError('Passwords do not match.');
+ 
+    setBusy(true);
+    setError('');
+    try {
+      await api.post('/auth/password/reset', { email: cleanEmail, otp, pass });
+      toast('Password updated — sign in with your new password.');
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+ 
+  return (
+    <div className="authwrap">
+      <div className="authcard">
+        <div className="card-pad" style={{ paddingTop: 30 }}>
+          <button className="linklike" style={{ marginBottom: 14 }} onClick={() => navigate('/login')}>&larr; Back to sign in</button>
           <h1 style={{ fontSize: 20, marginBottom: 4 }}>HausKeeper</h1>
           <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 10.5, margin: '-2px 0 6px' }}>boardinghouse management system</p>
-          <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 12, margin: '6px 0 20px' }}>create a tenant account — admin accounts are issued by property staff</p>
-
-          {step === 'code' ? (
+          <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 12, margin: '6px 0 20px' }}>reset your tenant password — staff should ask a property manager</p>
+ 
+          {step === 'reset' ? (
             <>
               <p style={{ fontSize: 13, margin: '0 0 14px' }}>
-                We sent a 6-digit code to <strong>{f.email.trim().toLowerCase()}</strong>. It expires in 10 minutes.
+                If an account exists for <strong>{cleanEmail}</strong>, we sent a 6-digit code to it. It expires in 10 minutes.
               </p>
               {mailNote ? <div className="pill warn" style={{ marginBottom: 12 }}>{mailNote}</div> : null}
               <div className="field">
-                <label>Verification code</label>
+                <label>Reset code</label>
                 <input
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -378,51 +766,57 @@ export function RegisterScreen() {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   autoFocus
-                  onKeyDown={(e) => { if (e.key === 'Enter') verify(); }}
                 />
               </div>
-
+              <div className="field-row">
+                <div className="field"><label>New password</label><input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" /></div>
+                <div className="field">
+                  <label>Confirm password</label>
+                  <input
+                    type="password"
+                    value={pass2}
+                    onChange={(e) => setPass2(e.target.value)}
+                    placeholder="••••••••"
+                    onKeyDown={(e) => { if (e.key === 'Enter') reset(); }}
+                  />
+                </div>
+              </div>
+ 
               {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
-
-              <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={verify} disabled={busy}>
-                {busy ? 'Checking…' : 'Verify & create account'}
+ 
+              <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={reset} disabled={busy}>
+                {busy ? 'Updating…' : 'Reset password'}
               </button>
               <p className="switch-line">
-                <button className="linklike" style={{ fontSize: 11.5 }} onClick={sendCode} disabled={busy || cooldown > 0}>
+                <button className="linklike" style={{ fontSize: 15.5 }} onClick={sendCode} disabled={busy || cooldown > 0}>
                   {cooldown > 0 ? `resend code in ${cooldown}s` : 'resend code'}
                 </button>
                 {' · '}
-                <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => { setStep('form'); setError(''); }}>change details</button>
+                <button className="linklike" style={{ fontSize: 15.5 }} onClick={() => { setStep('email'); setError(''); }}>change email</button>
               </p>
             </>
           ) : (
-          <>
-          <div className="field"><label>Full name</label><input value={f.name} onChange={set('name')} placeholder="Juan Dela Cruz" /></div>
-          <div className="field"><label>Email</label><input value={f.email} onChange={set('email')} placeholder="juan.delacruz@gmail.com" /></div>
-          <div className="field"><label>Phone</label><input value={f.phone} onChange={set('phone')} placeholder="0917 000 0000" /></div>
-          <div className="field-row">
-            <div className="field"><label>Password</label><input type="password" value={f.pass} onChange={set('pass')} placeholder="••••••••" /></div>
-            <div className="field">
-              <label>Confirm password</label>
-              <input
-                type="password"
-                value={f.pass2}
-                onChange={set('pass2')}
-                placeholder="••••••••"
-                onKeyDown={(e) => { if (e.key === 'Enter') sendCode(); }}
-              />
-            </div>
-          </div>
-
-          <Captcha ref={captchaRef} onChange={setCaptcha} onConfig={setCaptchaOn} />
-
-          {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
-
-          <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={sendCode} disabled={busy}>
-            {busy ? 'Sending code…' : 'Send verification code'}
-          </button>
-          <p className="switch-line">already have an account? <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => navigate('/login')}>sign in</button></p>
-          </>
+            <>
+              <div className="field">
+                <label>Email</label>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@gmail.com"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') sendCode(); }}
+                />
+              </div>
+ 
+              <Captcha ref={captchaRef} onChange={setCaptcha} onConfig={setCaptchaOn} />
+ 
+              {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
+ 
+              <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={sendCode} disabled={busy}>
+                {busy ? 'Sending code…' : 'Send reset code'}
+              </button>
+              <p className="switch-line">remembered it? <button className="linklike" style={{ fontSize: 15.5 }} onClick={() => navigate('/login')}>sign in</button></p>
+            </>
           )}
         </div>
       </div>

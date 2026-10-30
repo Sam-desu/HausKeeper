@@ -365,3 +365,45 @@ export function ticketEmail({ propertyName = 'HausKeeper', name, ticket, assigne
     note: 'Need to add details? Reply to this email or message the admin.',
   });
 }
+
+// server/utils/emailTemplates.js  (EDIT)
+// Paste this at the end of the file, after otpEmail.
+
+/* ---------- 6. Password reset code (indigo) ---------- */
+export function resetPasswordEmail({
+  propertyName = "HausKeeper",
+  name,
+  code,
+  expiresInMinutes = 10,
+}) {
+  const c = THEMES.info;
+  const hero = `
+        <tr>
+          <td align="center" style="padding:32px 24px 8px;">
+            <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};font-weight:600;">Your password reset code</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px auto 14px;">
+              <tr>
+                <td align="center" bgcolor="${c.soft}"
+                  style="background:${c.soft};border:2px dashed ${c.accent};border-radius:14px;padding:18px 28px;">
+                  <span style="font-family:'SF Mono',Menlo,Consolas,'Courier New',monospace;font-size:38px;font-weight:800;letter-spacing:10px;color:${c.dark};">${esc(code)}</span>
+                </td>
+              </tr>
+            </table>
+            <div style="font-size:14px;color:${MUTED};line-height:1.6;">
+              Enter this code on the reset page to choose a new password.<br>
+              It expires in <b style="color:${INK};">${esc(expiresInMinutes)} minutes</b>.
+            </div>
+          </td>
+        </tr>`;
+
+  return layout({
+    theme: "info",
+    propertyName,
+    preheader: `Your ${propertyName} password reset code is ${code}. It expires in ${expiresInMinutes} minutes.`,
+    icon: "🔑",
+    title: "Reset your password",
+    subtitle: `Hi ${name || "there"}, we got a request to reset your password.`,
+    hero,
+    note: "Never share this code with anyone. Our staff will never ask for it.<br>If you didn’t ask for this, you can safely ignore this email. Your password will not change.",
+  });
+}

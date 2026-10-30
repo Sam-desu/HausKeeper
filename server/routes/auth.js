@@ -5,10 +5,13 @@ import EmailOtp from "../models/EmailOtp.js";
 import { signToken, requireAuth } from "../middleware/auth.js";
 import { HttpError } from "../services/housing.js";
 import { captchaEnabled, verifyCaptcha } from "../services/captcha.js";
-import { sendMail } from "../services/mailer.js";
-import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
-import { getSettings } from "../models/Settings.js";
-import { otpEmail } from "../utils/emailTemplates.js";
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { sendMail, mailConfigured } from "../services/mailer.js";
+import { otpEmail, resetPasswordEmail } from "../utils/emailTemplates.js";
+import PasswordReset from "../models/PasswordReset.js";
+import getSettings from "../models/Settings.js";
+
+
 
 const router = Router();
 
@@ -192,5 +195,113 @@ router.get("/me", requireAuth, async (req, res) => {
     return res.status(401).json({ message: "Account no longer active" });
   res.json({ role, user });
 });
+
+const hashResetCode = (email, code) =>
+  createHmac("sha256", process.env.JWT_SECRET || "dev")
+    .update(`reset:${email}:${code}`)
+    .digest("hex");
+ 
+const EMAIL_RX = /^\S+@\S+\.\S+$/;
+ 
+// POST /api/auth/password/forgot   body: { email, captcha }
+// Always answers { ok: true } whether or not the email has an account, so nobody can use it
+// to find out who is registered. A row is stored either way so "resend" behaves the same.
+router.post("/password/forgot", async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  if (!EMAIL_RX.test(email))
+    throw new HttpError(400, "Enter a valid email address.");
+  ipLimit(req.ip);
+ 
+  const existing = await PasswordReset.findOne({ email });
+  // first request needs the captcha; "resend" while a code is still pending does not
+  const resend = existing && existing.expiresAt > new Date();
+  if (!resend) await verifyCaptcha(req.body.captcha, req.ip);
+  if (existing && Date.now() - existing.sentAt.getTime() < OTP_RESEND_MS) {
+    const wait = Math.ceil(
+      (OTP_RESEND_MS - (Date.now() - existing.sentAt.getTime())) / 1000,
+    );
+    throw new HttpError(
+      429,
+      `Please wait ${wait} seconds before asking for a new code.`,
+    );
+  }
+ 
+  const tenant = await Tenant.findOne({ email });
+  const eligible = !!tenant && tenant.status !== "inactive";
+ 
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  await PasswordReset.findOneAndUpdate(
+    { email },
+    {
+      // no account → store a random hash nobody can match
+      codeHash: eligible ? hashResetCode(email, code) : randomBytes(32).toString("hex"),
+      attempts: 0,
+      sentAt: new Date(),
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+    },
+    { upsert: true },
+  );
+ 
+  let sent = false;
+  if (eligible) {
+    const settings = await getSettings();
+    const firstName = tenant.name.split(" ")[0];
+    sent = await sendMail({
+      to: email,
+      subject: `Reset your ${settings.propertyName} password`,
+      text: `Hi ${firstName},\n\nYour ${settings.propertyName} password reset code is ${code}.\nIt expires in 10 minutes. If you did not ask to reset your password, you can ignore this email and your password will stay the same.`,
+      html: resetPasswordEmail({
+        propertyName: settings.propertyName,
+        name: firstName,
+        code,
+        expiresInMinutes: OTP_TTL_MS / 60000,
+      }),
+    });
+  }
+  res.json({ ok: true, emailed: eligible ? !!sent : mailConfigured() });
+});
+ 
+// POST /api/auth/password/reset   body: { email, otp, pass }
+router.post("/password/reset", async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const otp = String(req.body.otp || "").trim();
+  const { pass } = req.body;
+ 
+  if (!EMAIL_RX.test(email))
+    throw new HttpError(400, "Enter a valid email address.");
+  if (!/^\d{6}$/.test(otp))
+    throw new HttpError(400, "Enter the 6-digit code from your email.");
+  if (!pass || pass.length < 4)
+    throw new HttpError(400, "Password must be at least 4 characters.");
+ 
+  const pending = await PasswordReset.findOne({ email });
+  if (!pending || pending.expiresAt < new Date())
+    throw new HttpError(400, "That code has expired. Please request a new one.");
+  if (pending.attempts >= OTP_MAX_ATTEMPTS) {
+    await pending.deleteOne();
+    throw new HttpError(400, "Too many wrong codes. Please request a new one.");
+  }
+  const a = Buffer.from(pending.codeHash);
+  const b = Buffer.from(hashResetCode(email, otp));
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    pending.attempts += 1;
+    await pending.save();
+    throw new HttpError(
+      400,
+      "Incorrect code. Please check your email and try again.",
+    );
+  }
+ 
+  const tenant = await Tenant.findOne({ email });
+  if (!tenant || tenant.status === "inactive")
+    throw new HttpError(400, "That code has expired. Please request a new one.");
+ 
+  tenant.password = pass; // hashed by the pre-save hook in Tenant.js
+  await tenant.save();
+  await pending.deleteOne();
+  res.json({ message: "Password updated. You can now sign in." });
+});
+
+
 
 export default router;

@@ -6,7 +6,7 @@ import { ModalProvider } from './context/ModalContext.jsx';
 import { RequireRole, RequirePerm, NotFound } from './components/Guards.jsx';
 import AppShell from './layouts/AppShell.jsx';
 import { TENANT_NAV, ADMIN_NAV } from './nav.js';
-import { HomeScreen, LoginScreen, RegisterScreen } from './components/Auth.jsx';
+import { HomeScreen, LoginScreen, RegisterScreen, ForgotPasswordScreen } from './components/Auth.jsx';
 import { RoomDesigner } from './components/RoomDesigner.jsx';
 import { AdminRoomLayouts } from './components/AdminRoomLayouts.jsx';
 import AdminMap from './components/canvas.jsx';
@@ -38,6 +38,7 @@ export default function App() {
               <Route path="/" element={<HomeScreen />} />
               <Route path="/login" element={<LoginScreen />} />
               <Route path="/register" element={<RegisterScreen />} />
+              <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
 
               {/* tenant portal */}
               <Route path="/tenant" element={<RequireRole role="tenant"><AppShell portal="tenant" nav={TENANT_NAV} /></RequireRole>}>
