@@ -10,10 +10,9 @@ import {
   settleInvoice,
   STAFF_METHODS,
 } from "../services/billing.js";
-import { notifyTenant, peso } from "../services/notify.js";
 import { paymongoEnabled } from "../services/paymongo.js";
 import { todayManila } from "../utils/dates.js";
-import { newInvoiceEmail } from "../utils/emailTemplates.js";
+import { generateMonthlyInvoices, announceNewInvoice } from "../services/invoicing.js";
 
 const router = Router();
 
@@ -107,24 +106,13 @@ router.post("/", requireStaff("billing"), async (req, res) => {
     due,
     amount,
   });
-  notifyTenant(tenant._id, {
-    type: "invoice",
-    title: `New invoice ${invoice.id}`,
-    template: "invoice",
-    vars: { period: invoice.period, amount: peso(amount), due },
-    html: (t, settings) =>
-      newInvoiceEmail({
-        propertyName: settings.propertyName,
-        name: t.name,
-        invoice,
-        amountText: peso(amount),
-        buttonUrl: process.env.APP_URL
-          ? `${process.env.APP_URL}/tenant/billing`
-          : "",
-      }),
-    link: "/tenant/billing",
-  });
+  announceNewInvoice(invoice).catch(() => {});
   res.status(201).json(invoice);
+});
+
+// POST /api/invoices/auto-generate   body: { dryRun?: boolean }
+router.post("/auto-generate", requireStaff("billing"), async (req, res) => {
+  res.json(await generateMonthlyInvoices({ dryRun: req.body?.dryRun === true }));
 });
 
 // POST /api/invoices/:id/pay   body: { method?: 'cash' | 'bank' | 'gcash' | 'other' }

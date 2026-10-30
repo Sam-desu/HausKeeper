@@ -19,6 +19,7 @@ const invoiceSchema = new mongoose.Schema(
     // "rent" = normal monthly invoice, "maintenance" = repair charge raised from a ticket
     kind: { type: String, enum: ["rent", "maintenance"], default: "rent" },
     ticket: { type: String, default: null }, // ticket id for maintenance charges (one charge per ticket)
+    cycle: { type: String, default: null },
     description: { type: String, default: "", trim: true, maxlength: 300 },
     // how it was paid: gcash / paymaya / card (online) or cash / bank / other (recorded by staff)
     method: { type: String, default: null },
@@ -48,6 +49,6 @@ const invoiceSchema = new mongoose.Schema(
 );
 
 // a ticket can only ever have one repair charge, even if two admins click at the same moment
-invoiceSchema.index({ ticket: 1 }, { unique: true, partialFilterExpression: { ticket: { $type: "string" } } });
+invoiceSchema.index({ tenant: 1, cycle: 1 }, { unique: true, partialFilterExpression: { cycle: { $type: "string" } } });
 
 export default mongoose.model("Invoice", invoiceSchema);

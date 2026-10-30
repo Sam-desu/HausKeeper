@@ -26,6 +26,7 @@ import notificationRoutes from './routes/notifications.js';
 import chatRoutes from './routes/chat.js';
 import roomLayoutsRouter from './routes/roomLayouts.js';
 import supportRoutes from './routes/support.js';
+import { runAutoInvoicing } from './services/invoicing.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -150,6 +151,8 @@ const expiryTimer = setInterval(() => expireReservations().catch(console.error),
 // overdue notices: once at start-up, then every hour (each invoice is only ever notified once)
 notifyOverdueInvoices().catch(console.error);
 const overdueTimer = setInterval(() => notifyOverdueInvoices().catch(console.error), 60 * 60_000);
+runAutoInvoicing().catch(console.error);
+const invoiceTimer = setInterval(() => runAutoInvoicing().catch(console.error), 60 * 60_000);
 
 // Finish in-flight requests when the host restarts the service
 const shutdown = () => {

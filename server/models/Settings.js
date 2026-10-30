@@ -9,6 +9,9 @@ const settingsSchema = new mongoose.Schema(
     address: text('24 Aster St., Marikina City'),
     billingCycle: text('Monthly, due on the 5th'),
     lateFee: text('₱200 flat + 1%/week after due date'),
+    autoInvoice: { type: Boolean, default: false },            // off until the admin turns it on
+    billingDueDay: { type: Number, default: 5, min: 1, max: 31 },
+    invoiceLeadDays: { type: Number, default: 7, min: 0, max: 28 }, // send this many days before the due date
     // In-app notifications are always on. Email and SMS are switched here (and need credentials in .env).
     notifChannels: {
       email: { type: Boolean, default: false },
