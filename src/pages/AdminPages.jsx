@@ -1514,6 +1514,8 @@ export function Reports() {
                   fontFamily: "var(--serif)",
                   fontWeight: 600,
                   fontSize: 18,
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
                 }}
               >
                 {occupancyRate}%

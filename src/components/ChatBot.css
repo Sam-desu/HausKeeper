@@ -33,3 +33,10 @@
 .chat-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); background: var(--paper-raised); }
 .chat-form input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 13.5px; background: var(--paper-raised); color: var(--ink); }
 .chat-note { font-size: 11px; color: var(--slate-dark); padding: 0 12px 8px; background: var(--paper-raised); }
+
+@media print {
+  .chat-fab,
+  .chat-panel {
+    display: none !important;
+  }
+}
