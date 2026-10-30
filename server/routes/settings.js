@@ -3,6 +3,7 @@ import { getSettings } from "../models/Settings.js";
 import { requireStaff } from "../middleware/auth.js";
 import { emailConfigured, smsConfigured } from "../services/notify.js";
 import { HttpError } from "../services/housing.js";
+import { lateFeeLabel, applyLateFees } from "../services/lateFees.js";
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.get("/", requireStaff("settings"), async (_req, res) => {
 router.put("/", requireStaff("settings"), async (req, res) => {
   const s = await getSettings();
 
-  for (const key of ["propertyName", "address", "billingCycle", "lateFee"]) {
+  for (const key of ["propertyName", "address"]) {
     if (req.body[key] === undefined) continue;
     const value = String(req.body[key]).trim();
     if (key === "propertyName" && !value)
@@ -80,6 +81,42 @@ router.put("/", requireStaff("settings"), async (req, res) => {
         : ["th", "st", "nd", "rd"][d % 10] || "th";
     s.set("billingCycle", `Monthly, due on the ${d}${suffix}`);
   }
+
+  const numField = (key, max, label) => {
+    if (req.body[key] === undefined) return;
+    const n = Number(req.body[key]);
+    if (!Number.isFinite(n) || n < 0 || n > max)
+      throw new HttpError(400, `${label} must be between 0 and ${max}`);
+    s.set(key, Math.round(n * 100) / 100);
+  };
+  numField("lateFeeFlat", 100000, "Flat fee");
+  numField("lateFeeWeeklyPct", 100, "Weekly percentage");
+  numField("lateFeeCap", 1000000, "Maximum fee");
+  intField("lateFeeGraceDays", 0, 30, "Grace days");
+  if (req.body.lateFeeEnabled !== undefined) {
+    if (typeof req.body.lateFeeEnabled !== "boolean")
+      throw new HttpError(400, "Invalid value for lateFeeEnabled");
+    s.set("lateFeeEnabled", req.body.lateFeeEnabled);
+  }
+  if (
+    [
+      "lateFeeEnabled",
+      "lateFeeFlat",
+      "lateFeeWeeklyPct",
+      "lateFeeGraceDays",
+      "lateFeeCap",
+    ].some((k) => s.isModified(k))
+  )
+    s.set("lateFee", lateFeeLabel(s));
+
+  // POST /api/settings/late-fees/preview: what would be charged right now (ignores the on/off switch)
+  router.post(
+    "/late-fees/preview",
+    requireStaff("settings"),
+    async (_req, res) => {
+      res.json(await applyLateFees({ dryRun: true, ignoreEnabled: true }));
+    },
+  );
 
   await s.save(); // schema length limits are enforced here and return 400
   res.json(withChannelStatus(s));

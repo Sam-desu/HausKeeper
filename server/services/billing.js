@@ -64,32 +64,38 @@ export async function invoiceSummary() {
   };
 }
 
-// The one place an invoice becomes paid. `filter` decides which invoice (e.g. {_id, tenant}).
-// Only an unpaid invoice can match, so paying twice (return page + webhook, double click) is harmless:
-// the second attempt gets null and sends no second notification.
-// Pass { announce: false } to skip the notification (used by settleMany).
-export async function settleInvoice(
-  filter,
-  method = null,
-  { announce = true } = {},
-) {
-  const invoice = await Invoice.findOneAndUpdate(
-    { ...filter, status: "unpaid" },
-    { status: "paid", paidOn: todayManila(), method },
-    { new: true },
-  );
+export async function settleInvoice(filter, method = null, { announce = true, sessionId = null } = {}) {
+  let invoice = null;
+  for (let attempt = 0; attempt < 3 && !invoice; attempt++) {
+    const current = await Invoice.findOne({ ...filter, status: "unpaid" });
+    if (!current) return null; // already paid: harmless, same as before
+
+    const update = { status: "paid", paidOn: todayManila(), method };
+    const guard = { ...filter, status: "unpaid" };
+
+    // The checkout page charged `snap`. If a late fee was added after that, honour what was shown and record
+    // what was really collected, so the books match the money.
+    const snap = sessionId ? current.checkoutAmounts?.get(sessionId) : undefined;
+    if (snap != null && snap < current.amount) {
+      const diff = Math.round((current.amount - snap) * 100) / 100;
+      const fee = current.lateFee || 0;
+      if (diff > fee + 0.001) {
+        console.error(`Payment for ${current.id} is ${diff} short of more than its late fee; settle manually`);
+        return null;
+      }
+      update.amount = snap;
+      update.lateFee = Math.max(0, Math.round((fee - diff) * 100) / 100);
+      guard.amount = current.amount; // only if nobody changed it in the meantime
+    }
+    invoice = await Invoice.findOneAndUpdate(guard, update, { new: true });
+  }
   if (invoice && announce) announcePayment(invoice).catch(() => {});
   return invoice;
 }
 
-// Pays several invoices, then sends ONE notification (and one email) for the whole batch.
-// `filters` is an array of filters, e.g. [{ _id: "INV-2203", tenant }, ...]
-// A batch that ends up with a single paid invoice sends the normal single receipt.
-export async function settleMany(filters, method = null) {
+export async function settleMany(filters, method = null, { sessionId = null } = {}) {
   const settled = (
-    await Promise.all(
-      filters.map((f) => settleInvoice(f, method, { announce: false })),
-    )
+    await Promise.all(filters.map((f) => settleInvoice(f, method, { announce: false, sessionId })))
   ).filter(Boolean);
 
   if (settled.length === 1) announcePayment(settled[0]).catch(() => {});
@@ -215,6 +221,7 @@ export async function notifyOverdueInvoices() {
           buttonUrl: process.env.APP_URL
             ? `${process.env.APP_URL}/tenant/billing`
             : "",
+          lateFeeNote: settings.lateFeeEnabled ? settings.lateFee : "",
         }),
       link: "/tenant/billing",
     });

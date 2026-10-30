@@ -37,15 +37,15 @@ async function call(method, path, body) {
 }
 
 // One PayMongo line item for an invoice. Amount is converted to centavos.
-const lineItem = (invoice) => {
+const lineItems = (invoice) => {
   const label = invoice.kind === 'maintenance' ? 'Repair charge' : 'Rent';
-  return {
-    currency: 'PHP',
-    amount: Math.round(invoice.amount * 100),
-    name: `${label} · ${invoice.period}`.slice(0, 120),
-    quantity: 1,
-    description: `Invoice ${invoice.id} · Room ${invoice.room}`,
-  };
+  const totalC = Math.round(invoice.amount * 100);
+  const feeC = Math.min(totalC, Math.round((invoice.lateFee || 0) * 100));
+  const description = `Invoice ${invoice.id} · Room ${invoice.room}`;
+  const items = [{ currency: 'PHP', amount: totalC - feeC, name: `${label} · ${invoice.period}`.slice(0, 120), quantity: 1, description }];
+  if (feeC > 0)
+    items.push({ currency: 'PHP', amount: feeC, name: `Late fee · ${invoice.period}`.slice(0, 120), quantity: 1, description });
+  return items;
 };
 
 // Returns { id, url } for a single invoice.
@@ -54,7 +54,7 @@ export async function createCheckout({ invoice, tenant, successUrl, cancelUrl })
     data: {
       attributes: {
         billing: { name: tenant.name, email: tenant.email },
-        line_items: [lineItem(invoice)],
+        line_items: lineItems(invoice),
         payment_method_types: METHODS,
         description: `Invoice ${invoice.id}`,
         reference_number: invoice.id,
@@ -77,7 +77,7 @@ export async function createBulkCheckout({ invoices, tenant, successUrl, cancelU
     data: {
       attributes: {
         billing: { name: tenant.name, email: tenant.email },
-        line_items: invoices.map(lineItem),
+        line_items: invoices.flatMap(lineItems),
         payment_method_types: METHODS,
         description: `${invoices.length} invoices`,
         reference_number: `BULK-${Date.now()}`,

@@ -4,6 +4,7 @@ import Tenant from '../models/Tenant.js';
 import { requireAuth, requireTenant } from '../middleware/auth.js';
 import { HttpError } from '../services/housing.js';
 import { settleInvoice, settleMany } from '../services/billing.js';
+import { refreshLateFee } from '../services/lateFees.js';
 import {
   paymongoEnabled,
   createCheckout,
@@ -30,8 +31,12 @@ router.get('/config', requireAuth, (_req, res) => {
 // POST /api/payments/checkout/:id → { url } to send the tenant to PayMongo's payment page.
 // With no PayMongo key configured it pays instantly (simulated, development only) and returns { simulated: true }.
 router.post('/checkout/:id', requireTenant, async (req, res) => {
-  const invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.user.id });
+  let invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.user.id });
   if (!invoice) throw new HttpError(404, 'Invoice not found');
+  if (invoice.status === 'paid') throw new HttpError(409, 'Invoice is already paid');
+
+  // charge today's late fee, not the one from the last hourly run
+  invoice = await refreshLateFee(invoice);
   if (invoice.status === 'paid') throw new HttpError(409, 'Invoice is already paid');
 
   if (!paymongoEnabled()) {
@@ -47,9 +52,13 @@ router.post('/checkout/:id', requireTenant, async (req, res) => {
     successUrl: `${appUrl()}/tenant/billing?paid=${invoice.id}`,
     cancelUrl: `${appUrl()}/tenant/billing?cancelled=${invoice.id}`,
   });
+  // remember what this checkout page charged, so a fee that grows afterwards can't make the payment fall short
   await Invoice.updateOne(
     { _id: invoice._id },
-    { $push: { checkoutSessions: { $each: [session.id], $slice: -5 } } }
+    {
+      $push: { checkoutSessions: { $each: [session.id], $slice: -5 } },
+      $set: { [`checkoutAmounts.${session.id}`]: invoice.amount },
+    }
   );
   res.json({ url: session.url });
 });
@@ -57,7 +66,8 @@ router.post('/checkout/:id', requireTenant, async (req, res) => {
 // POST /api/payments/checkout-all → pay every unpaid invoice (overdue included) in one go.
 // One PayMongo session with one line item per invoice; the tenant gets a single combined receipt.
 router.post('/checkout-all', requireTenant, async (req, res) => {
-  const invoices = await Invoice.find({ tenant: req.user.id, status: 'unpaid' }).sort({ due: 1, _id: 1 });
+  let invoices = await Invoice.find({ tenant: req.user.id, status: 'unpaid' }).sort({ due: 1, _id: 1 });
+  invoices = (await Promise.all(invoices.map(refreshLateFee))).filter((i) => i.status === 'unpaid');
   if (!invoices.length) throw new HttpError(409, 'You have no unpaid invoices');
 
   if (!paymongoEnabled()) {
@@ -76,9 +86,16 @@ router.post('/checkout-all', requireTenant, async (req, res) => {
     successUrl: `${appUrl()}/tenant/billing?paid=all`,
     cancelUrl: `${appUrl()}/tenant/billing?cancelled=all`,
   });
-  await Invoice.updateMany(
-    { _id: { $in: invoices.map((i) => i._id) } },
-    { $push: { checkoutSessions: { $each: [session.id], $slice: -5 } } }
+  await Invoice.bulkWrite(
+    invoices.map((i) => ({
+      updateOne: {
+        filter: { _id: i._id },
+        update: {
+          $push: { checkoutSessions: { $each: [session.id], $slice: -5 } },
+          $set: { [`checkoutAmounts.${session.id}`]: i.amount },
+        },
+      },
+    }))
   );
   res.json({
     url: session.url,
@@ -99,7 +116,7 @@ router.post('/verify/:id', requireTenant, async (req, res) => {
   for (const sessionId of [...invoice.checkoutSessions].reverse()) {
     const info = paidInfo(await getCheckout(sessionId));
     if (!info.paid) continue;
-    const paid = await settleInvoice({ _id: invoice._id }, info.method);
+    const paid = await settleInvoice({ _id: invoice._id }, info.method, { sessionId });
     return res.json({ paid: true, invoice: paid || (await Invoice.findById(invoice._id)) });
   }
   res.json({ paid: false, invoice });
@@ -117,7 +134,8 @@ router.post('/verify-all', requireTenant, async (req, res) => {
       const covered = unpaid.filter((i) => i.checkoutSessions.includes(sessionId));
       await settleMany(
         covered.map((i) => ({ _id: i._id, tenant: req.user.id })),
-        info.method
+        info.method,
+        { sessionId }
       );
     }
   }
@@ -140,10 +158,10 @@ router.post('/webhook', async (req, res) => {
     if (attrs?.metadata?.bulk === 'true') {
       // a "pay all" session: settle every invoice that was in it
       const invoices = await Invoice.find({ checkoutSessions: session.id, status: 'unpaid' }).select('_id');
-      await settleMany(invoices.map((i) => ({ _id: i._id })), method);
+      await settleMany(invoices.map((i) => ({ _id: i._id })), method, { sessionId: session.id });
     } else {
       const invoiceId = attrs?.metadata?.invoice_id || attrs?.reference_number;
-      if (invoiceId) await settleInvoice({ _id: invoiceId }, method);
+      if (invoiceId) await settleInvoice({ _id: invoiceId }, method, { sessionId: session.id });
     }
   }
   res.json({ received: true });

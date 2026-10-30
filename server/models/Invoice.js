@@ -25,6 +25,10 @@ const invoiceSchema = new mongoose.Schema(
     method: { type: String, default: null },
     checkoutSessions: { type: [String], default: [] }, // recent PayMongo checkout session ids
     overdueNotified: { type: Boolean, default: false },
+    lateFee: { type: Number, default: 0, min: 0 },   // the part of `amount` that is a late fee
+    lateFeeWaived: { type: Boolean, default: false },
+    // what each PayMongo checkout page charged, by session id (so a growing fee can't make a payment fall short)
+    checkoutAmounts: { type: Map, of: Number, default: undefined },
   },
   {
     timestamps: true,
@@ -35,6 +39,8 @@ const invoiceSchema = new mongoose.Schema(
         delete ret.__v;
         delete ret.overdueNotified;
         delete ret.checkoutSessions;
+        delete ret.checkoutAmounts;
+        ret.baseAmount = Math.round((ret.amount - (ret.lateFee || 0)) * 100) / 100;
         if (ret.status === "unpaid" && ret.due < todayManila())
           ret.status = "overdue";
         const v = ret.tenant;

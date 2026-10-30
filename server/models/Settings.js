@@ -9,6 +9,11 @@ const settingsSchema = new mongoose.Schema(
     address: text('24 Aster St., Marikina City'),
     billingCycle: text('Monthly, due on the 5th'),
     lateFee: text('₱200 flat + 1%/week after due date'),
+    lateFeeEnabled: { type: Boolean, default: false },
+    lateFeeFlat: { type: Number, default: 200, min: 0 },
+    lateFeeWeeklyPct: { type: Number, default: 1, min: 0, max: 100 },
+    lateFeeGraceDays: { type: Number, default: 0, min: 0, max: 30 },
+    lateFeeCap: { type: Number, default: 0, min: 0 }, // 0 = no cap
     autoInvoice: { type: Boolean, default: false },            // off until the admin turns it on
     billingDueDay: { type: Number, default: 5, min: 1, max: 31 },
     invoiceLeadDays: { type: Number, default: 7, min: 0, max: 28 }, // send this many days before the due date

@@ -13,6 +13,7 @@ import {
 import { paymongoEnabled } from "../services/paymongo.js";
 import { todayManila } from "../utils/dates.js";
 import { generateMonthlyInvoices, announceNewInvoice } from "../services/invoicing.js";
+import { waiveLateFee } from "../services/lateFees.js";
 
 const router = Router();
 
@@ -113,6 +114,14 @@ router.post("/", requireStaff("billing"), async (req, res) => {
 // POST /api/invoices/auto-generate   body: { dryRun?: boolean }
 router.post("/auto-generate", requireStaff("billing"), async (req, res) => {
   res.json(await generateMonthlyInvoices({ dryRun: req.body?.dryRun === true }));
+});
+
+
+// POST /api/invoices/:id/waive-late-fee: removes the late fee and stops it from being added again
+router.post("/:id/waive-late-fee", requireStaff("billing"), async (req, res) => {
+  if (await waiveLateFee(req.params.id)) return res.json(await Invoice.findById(req.params.id));
+  const exists = await Invoice.exists({ _id: req.params.id });
+  throw new HttpError(exists ? 409 : 404, exists ? "Nothing to waive on this invoice" : "Invoice not found");
 });
 
 // POST /api/invoices/:id/pay   body: { method?: 'cash' | 'bank' | 'gcash' | 'other' }

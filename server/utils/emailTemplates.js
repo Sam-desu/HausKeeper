@@ -273,7 +273,7 @@ export function overdueEmail({
     ].join(""),
     buttonUrl,
     buttonText: "Pay now",
-    note: "If you have already paid, please ignore this message.<br>Need more time? Reply to this email or talk to the admin.",
+    note: `${lateFeeNote ? `A late fee applies: ${lateFeeNote}.<br>` : ""}If you have already paid, please ignore this message.<br>Need more time? Reply to this email or talk to the admin.`,
   });
 }
 

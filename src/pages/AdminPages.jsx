@@ -777,7 +777,6 @@ export function AdminBilling() {
   const invoices = list.data || [];
   const s = sum.data;
 
-  
   const autoGenerate = async () => {
     setGenerating(true);
     try {
@@ -805,18 +804,17 @@ export function AdminBilling() {
           <p>Track invoices, payments and overdue accounts.</p>
         </div>
         <div>
-           <button
-          className="btn secondary"
-          onClick={autoGenerate}
-          disabled={generating}
-        >
-          Generate monthly invoices
-        </button>
-        <button className="btn brass" onClick={openGenerateInvoiceModal}>
-          + Generate invoice
-        </button>
+          <button
+            className="btn secondary"
+            onClick={autoGenerate}
+            disabled={generating}
+          >
+            Generate monthly invoices
+          </button>
+          <button className="btn brass" onClick={openGenerateInvoiceModal}>
+            + Generate invoice
+          </button>
         </div>
-       
       </div>
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
         <div className="card kpi">
@@ -1684,7 +1682,6 @@ function SettingsForm({ initial }) {
   const [f, setF] = useState({
     propertyName: initial.propertyName,
     address: initial.address,
-    lateFee: initial.lateFee,
   });
   const [bill, setBill] = useState({
     autoInvoice: !!initial.autoInvoice,
@@ -1699,6 +1696,31 @@ function SettingsForm({ initial }) {
   });
   const ready = initial.channelStatus || {};
   const [busy, setBusy] = useState(null);
+
+  const [late, setLate] = useState({
+    lateFeeEnabled: !!initial.lateFeeEnabled,
+    lateFeeFlat: String(initial.lateFeeFlat ?? 200),
+    lateFeeWeeklyPct: String(initial.lateFeeWeeklyPct ?? 1),
+    lateFeeGraceDays: String(initial.lateFeeGraceDays ?? 0),
+    lateFeeCap: String(initial.lateFeeCap ?? 0),
+  });
+  const [lateLabel, setLateLabel] = useState(initial.lateFee);
+
+  const previewFees = async () => {
+    setBusy("preview");
+    try {
+      const r = await api.post("/settings/late-fees/preview");
+      toast(
+        r.invoices.length
+          ? `${r.invoices.length} overdue invoice(s) would be charged ₱${r.added.toLocaleString()} in late fees`
+          : "No overdue invoices would be charged",
+      );
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const save = async (which, body, message) => {
     setBusy(which);
@@ -1728,10 +1750,6 @@ function SettingsForm({ initial }) {
           <label>Address</label>
           <input value={f.address} onChange={setField("address")} />
         </div>
-        <div className="field">
-          <label>Late fee policy</label>
-          <input value={f.lateFee} onChange={setField("lateFee")} />
-        </div>
         <button
           className="btn brass"
           onClick={() => save("property", f, "Property settings saved")}
@@ -1745,7 +1763,7 @@ function SettingsForm({ initial }) {
         <p style={{ color: "var(--slate)", fontSize: 12, marginBottom: 6 }}>
           Creates each tenant&apos;s monthly rent invoice from their room&apos;s
           price. A tenant who moves in mid-month is charged a prorated first
-          invoice.
+          invoice. Formula: price × days remaining ÷ days in month
         </p>
         <label className="switch-row">
           <input
@@ -1811,6 +1829,108 @@ function SettingsForm({ initial }) {
         </button>
       </div>
       <div className="card card-pad">
+        <h3 style={{ marginBottom: 6 }}>Late fees</h3>
+        <p style={{ color: "var(--slate)", fontSize: 12, marginBottom: 6 }}>
+          A flat fee once an invoice is late, then a percentage of the rent for
+          every full week after that. Rent invoices only.
+        </p>
+        <label className="switch-row">
+          <input
+            type="checkbox"
+            checked={late.lateFeeEnabled}
+            onChange={(e) =>
+              setLate((s) => ({ ...s, lateFeeEnabled: e.target.checked }))
+            }
+          />
+          <span>
+            <span className="label">Charge late fees</span>
+            <span className="sub" style={{ display: "block" }}>
+              When on, every overdue rent invoice is charged within the hour.
+              Use Preview first.
+            </span>
+          </span>
+        </label>
+        <div className="field">
+          <label>Flat fee (₱)</label>
+          <input
+            type="number"
+            min="0"
+            value={late.lateFeeFlat}
+            onChange={(e) =>
+              setLate((s) => ({ ...s, lateFeeFlat: e.target.value }))
+            }
+          />
+        </div>
+        <div className="field">
+          <label>Extra per full week late (% of rent)</label>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            value={late.lateFeeWeeklyPct}
+            onChange={(e) =>
+              setLate((s) => ({ ...s, lateFeeWeeklyPct: e.target.value }))
+            }
+          />
+        </div>
+        <div className="field">
+          <label>Grace days before any fee</label>
+          <input
+            type="number"
+            min="0"
+            max="30"
+            value={late.lateFeeGraceDays}
+            onChange={(e) =>
+              setLate((s) => ({ ...s, lateFeeGraceDays: e.target.value }))
+            }
+          />
+        </div>
+        <div className="field">
+          <label>Maximum fee per invoice (₱, 0 = no limit)</label>
+          <input
+            type="number"
+            min="0"
+            value={late.lateFeeCap}
+            onChange={(e) =>
+              setLate((s) => ({ ...s, lateFeeCap: e.target.value }))
+            }
+          />
+        </div>
+        <p style={{ color: "var(--slate)", fontSize: 12, marginBottom: 14 }}>
+          Policy: {lateLabel}
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn secondary"
+            onClick={previewFees}
+            disabled={busy === "preview"}
+          >
+            {busy === "preview" ? "Checking…" : "Preview"}
+          </button>
+          <button
+            className="btn brass"
+            disabled={busy === "late"}
+            onClick={async () => {
+              const res = await save(
+                "late",
+                {
+                  lateFeeEnabled: late.lateFeeEnabled,
+                  lateFeeFlat: Number(late.lateFeeFlat),
+                  lateFeeWeeklyPct: Number(late.lateFeeWeeklyPct),
+                  lateFeeGraceDays: Number(late.lateFeeGraceDays),
+                  lateFeeCap: Number(late.lateFeeCap),
+                },
+                "Late fee settings saved",
+              );
+              if (res) setLateLabel(res.lateFee);
+            }}
+          >
+            {busy === "late" ? "Saving…" : "Save late fee settings"}
+          </button>
+        </div>
+      </div>
+      <div className="card card-pad">
         <h3 style={{ marginBottom: 6 }}>Notification templates</h3>
         <p style={{ color: "var(--slate)", fontSize: 12, marginBottom: 14 }}>
           Used for the in-app bell and for email / SMS when those are switched
@@ -1840,10 +1960,10 @@ function SettingsForm({ initial }) {
         </button>
       </div>
       <div className="card card-pad">
-        <h3 style={{ marginBottom: 6 }}>Notification channels</h3>
+        <h3 style={{ marginBottom: 6 }}>Notification Email Toggle</h3>
         <p style={{ color: "var(--slate)", fontSize: 12, marginBottom: 6 }}>
-          The in-app bell is always on. Switch on email or SMS to also send each
-          notice to the tenant&apos;s email address or phone number.
+          The in-app bell is always on. Switch on email send each notice to the
+          tenant&apos;s email address.
         </p>
         {[
           [
