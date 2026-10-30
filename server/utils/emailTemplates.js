@@ -30,6 +30,7 @@ const THEMES = {
     soft: "#e0e7ff",
     light: "#c7d2fe",
   },
+  warning: { accent: '#d97706', dark: '#b45309', soft: '#fef3c7', light: '#fde68a' },
 };
 
 const row = (label, value, valueColor = INK) => `
@@ -174,6 +175,43 @@ export function paymentReceiptEmail({
   });
 }
 
+/* ---------- 1b. Combined receipt for several invoices (green) ---------- */
+// items: [{ id, period, amountText }]
+export function bulkPaymentReceiptEmail({
+  propertyName = "HausKeeper",
+  name,
+  items = [],
+  room,
+  methodLabel,
+  paidOn,
+  amountText,
+  buttonUrl,
+}) {
+  const count = items.length;
+  return layout({
+    theme: "success",
+    propertyName,
+    preheader: `We received your ₱${amountText} payment covering ${count} invoices.`,
+    icon: "✓",
+    title: "Payment received",
+    subtitle: `Thank you, ${name || "there"}! ${count} invoices paid.`,
+    amountLabel: "Total paid",
+    amountText,
+    badge: "PAID",
+    rows: [
+      ...items.map((i) =>
+        row(`${i.id} · ${i.period}`, `₱${i.amountText}`),
+      ),
+      room ? row("Room", room) : "",
+      row("Payment method", methodLabel || "—"),
+      row("Paid on", paidOn || "—"),
+    ].join(""),
+    buttonUrl,
+    buttonText: "View billing history",
+    note: "Keep this email as your payment receipt.<br>Questions? Just reply to this email or message the admin.",
+  });
+}
+
 /* ---------- 2. New invoice (indigo) ---------- */
 export function newInvoiceEmail({
   propertyName = "HausKeeper",
@@ -275,5 +313,55 @@ export function otpEmail({
     subtitle: `Hi ${name || "there"}, welcome to ${propertyName}!`,
     hero,
     note: "Never share this code with anyone. Our staff will never ask for it.<br>If you didn’t try to register, you can safely ignore this email.",
+  });
+}
+
+/* ---------- 5. Maintenance ticket (indigo / amber / green by status) ---------- */
+const TICKET_STATUS = {
+  open:          { theme: 'info',    icon: '🛠', title: 'Request received',   badge: 'OPEN',        blurb: 'We got your maintenance request and will review it shortly.' },
+  'in-progress': { theme: 'warning', icon: '🔧', title: 'Work in progress',   badge: 'IN PROGRESS', blurb: 'Our team is working on your request.' },
+  resolved:      { theme: 'success', icon: '✓',  title: 'Request resolved',   badge: 'RESOLVED',    blurb: 'Your request has been marked as resolved. If the problem is still there, please let us know.' },
+};
+
+const PRIORITY_COLOR = { low: '#15803d', medium: '#b45309', high: '#b91c1c' };
+
+export function ticketEmail({ propertyName = 'HausKeeper', name, ticket, assignedName, buttonUrl }) {
+  const s = TICKET_STATUS[ticket.status] || TICKET_STATUS.open;
+  const c = THEMES[s.theme];
+
+  const hero = `
+        <tr>
+          <td align="center" style="padding:32px 24px 8px;">
+            <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};font-weight:600;">Maintenance request</div>
+            <div style="font-size:24px;font-weight:800;color:${INK};margin:8px 0 14px;line-height:1.3;">${esc(ticket.title)}</div>
+            <span style="display:inline-block;background:${c.soft};color:${c.dark};font-size:12px;font-weight:700;padding:5px 14px;border-radius:999px;letter-spacing:1px;">
+              ● ${esc(s.badge)}
+            </span>
+            <div style="font-size:14px;color:${MUTED};line-height:1.6;margin-top:16px;">${esc(s.blurb)}</div>
+          </td>
+        </tr>`;
+
+  const rows = [
+    row('Ticket', ticket.id),
+    row('Room', ticket.room),
+    row('Category', ticket.category),
+    row('Priority', String(ticket.priority || '').toUpperCase(), PRIORITY_COLOR[ticket.priority] || INK),
+    assignedName ? row('Assigned to', assignedName) : '',
+    row('Reported on', ticket.created),
+    ticket.notes ? row('Notes', ticket.notes) : '',
+  ].join('');
+
+  return layout({
+    theme: s.theme,
+    propertyName,
+    preheader: `${s.title}: ${ticket.title} (${ticket.id}).`,
+    icon: s.icon,
+    title: s.title,
+    subtitle: `Hi ${name || 'there'}, here's an update on your request.`,
+    hero,
+    rows,
+    buttonUrl,
+    buttonText: 'View my requests',
+    note: 'Need to add details? Reply to this email or message the admin.',
   });
 }

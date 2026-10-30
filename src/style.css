@@ -1,8 +1,20 @@
 /* ==========================================================================
-   HausKeeper: dorm & boarding-house theme
+   HausKeeper: dorm & boarding-house theme (responsive build)
    Door plates, key tags, pigeonhole walls. Bottle green + brass on a cool
-   pistachio paper. Larger type, full-width layout, no dead space.
+   pistachio paper. Fluid type, full-width layout, works from 320px phones
+   to ultra-wide desktops.
    Every original class name is preserved; only the styling changed.
+
+   Requires in your HTML <head>:
+   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+   Breakpoints used:
+     1100px  small laptops / landscape tablets
+     1000px  portrait tablets (hero stacks)
+      880px  tablets: landing page single column, auth wall hidden
+      820px  phones + small tablets: sidebar becomes a top nav strip
+      640px  large phones: forms stack, modals become bottom sheets
+      480px  small phones: tight spacing, full-width buttons
    ========================================================================== */
 
 @import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Public+Sans:wght@400..700&display=swap");
@@ -43,15 +55,15 @@
   --radius-plate: 5px;
   --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
 
-  /* type scale (rem, 1rem = 16px) */
+  /* type scale: fluid, scales down smoothly on small screens */
   --t-xs: 0.8125rem; /* 13px: smallest text anywhere */
   --t-sm: 0.9375rem; /* 15px */
   --t-base: 1.0625rem; /* 17px: body */
-  --t-lg: 1.25rem; /* 20px */
-  --t-xl: 1.5rem; /* 24px */
-  --t-2xl: 2rem; /* 32px */
-  --t-3xl: 2.75rem; /* 44px */
-  --t-hero: clamp(3rem, 5.2vw, 5rem);
+  --t-lg: clamp(1.125rem, 0.5vw + 1rem, 1.25rem); /* 18-20px */
+  --t-xl: clamp(1.25rem, 0.6vw + 1.1rem, 1.5rem); /* 20-24px */
+  --t-2xl: clamp(1.625rem, 1.4vw + 1.2rem, 2rem); /* 26-32px */
+  --t-3xl: clamp(1.875rem, 2.6vw + 1.1rem, 2.75rem); /* 30-44px */
+  --t-hero: clamp(2.5rem, 5.2vw + 0.5rem, 5rem); /* 40-80px */
 
   --display: "Bricolage Grotesque", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --serif: var(--display); /* legacy alias */
@@ -60,8 +72,14 @@
 
   /* layout */
   --topbar-h: 68px;
-  --sidebar-w: 268px;
-  --gutter: clamp(20px, 2.4vw, 40px);
+  --sidebar-w: clamp(220px, 19vw, 268px);
+  --gutter: clamp(16px, 2.4vw, 40px);
+
+  /* device safe areas (notches, home indicators) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 * {
@@ -74,6 +92,8 @@ body {
 }
 html {
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 body {
   background: var(--paper);
@@ -84,6 +104,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* rotated key tags can poke past the edge; never allow sideways page scroll */
+  overflow-x: hidden;
+  overflow-x: clip;
+  overflow-wrap: break-word;
 }
 ::selection {
   background: var(--brass-tint);
@@ -95,15 +119,24 @@ a {
 p {
   margin: 0 0 8px;
 }
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
 button {
   font-family: inherit;
   cursor: pointer;
+  touch-action: manipulation;
 }
 input,
 select,
 textarea {
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1rem; /* 16px minimum: stops iOS zooming on focus */
+  max-width: 100%;
 }
 :focus-visible {
   outline: 3px solid var(--brass);
@@ -157,6 +190,7 @@ strong {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -166,7 +200,8 @@ strong {
   align-items: center;
   gap: 24px;
   min-height: var(--topbar-h);
-  padding: 8px var(--gutter);
+  padding: 8px max(var(--gutter), var(--safe-right)) 8px max(var(--gutter), var(--safe-left));
+  padding-top: calc(8px + var(--safe-top));
   background: var(--forest);
   color: var(--paper);
   border-bottom: 3px solid var(--brass);
@@ -183,6 +218,7 @@ strong {
   align-items: center;
   gap: 12px;
   cursor: pointer;
+  min-width: 0;
 }
 .brand .mark {
   width: 38px;
@@ -197,6 +233,7 @@ strong {
   font-weight: 700;
   color: var(--brass);
   font-size: var(--t-base);
+  flex-shrink: 0;
   transition: background 0.2s var(--ease);
 }
 .brand:hover .mark {
@@ -207,6 +244,7 @@ strong {
   font-size: var(--t-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 .brand-name .cursor {
   display: none;
@@ -228,10 +266,14 @@ strong {
   gap: 12px;
   font-size: var(--t-sm);
   color: var(--chrome);
+  min-width: 0;
 }
 .identity .whoami {
   font-family: var(--sans);
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .identity .avatar {
   width: 38px;
@@ -245,6 +287,7 @@ strong {
   font-family: var(--sans);
   font-size: var(--t-xs);
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .body-wrap {
@@ -259,11 +302,14 @@ strong {
   background: var(--chrome);
   border-right: 1px solid var(--line);
   padding: 22px 14px;
+  padding-left: calc(14px + var(--safe-left));
   position: sticky;
   top: var(--topbar-h);
   align-self: flex-start;
   height: calc(100vh - var(--topbar-h));
+  height: calc(100dvh - var(--topbar-h));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar .group-label {
   font-family: var(--sans);
@@ -341,7 +387,7 @@ strong {
 
 main {
   flex: 1;
-  padding: 32px var(--gutter) 64px;
+  padding: 32px max(var(--gutter), var(--safe-right)) calc(64px + var(--safe-bottom)) var(--gutter);
   min-width: 0;
   width: 100%;
   overflow-x: auto;
@@ -354,6 +400,9 @@ main {
   margin-bottom: 28px;
   gap: 16px;
   flex-wrap: wrap;
+}
+.pageHead > * {
+  min-width: 0;
 }
 .pageHead .eyebrow {
   display: block;
@@ -380,7 +429,7 @@ main {
   box-shadow: var(--shadow);
 }
 .card-pad {
-  padding: 28px;
+  padding: clamp(18px, 2vw, 28px);
   position: relative;
 }
 .card-pad > h3:first-child {
@@ -393,7 +442,7 @@ main {
 
 .grid {
   display: grid;
-  gap: 20px;
+  gap: clamp(14px, 1.6vw, 20px);
 }
 .grid > * {
   min-width: 0;
@@ -406,14 +455,6 @@ main {
 }
 .grid-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-@media (max-width: 1100px) {
-  .grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 /* KPI tiles: plain, not interactive */
@@ -431,7 +472,7 @@ main {
 }
 .kpi .val {
   font-family: var(--display);
-  font-size: clamp(2.25rem, 3vw, 3rem);
+  font-size: clamp(2rem, 3vw, 3rem);
   font-weight: 700;
   color: var(--forest);
   line-height: 1.05;
@@ -568,6 +609,7 @@ main {
 /* ============ TABLES ============ */
 .card:has(> table) {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 table {
   width: 100%;
@@ -721,7 +763,7 @@ fieldset:disabled .field textarea {
   transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 .toolbar input[type="text"] {
-  min-width: 320px;
+  min-width: min(320px, 100%);
 }
 .toolbar input[type="text"]:focus,
 .toolbar select:focus {
@@ -832,7 +874,9 @@ td .empty,
   max-width: 660px;
   width: 100%;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--line);
   border-top: 4px solid var(--brass);
@@ -842,6 +886,7 @@ td .empty,
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 20px 28px;
   border-bottom: 1px solid var(--line);
   background: var(--paper-soft);
@@ -860,8 +905,9 @@ td .empty,
   font-size: 1.5rem;
   color: var(--slate-dark);
   line-height: 1;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
@@ -892,8 +938,8 @@ td .empty,
 /* ============ TOASTS ============ */
 .toast-wrap {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(24px + var(--safe-bottom));
+  right: calc(24px + var(--safe-right));
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -946,6 +992,16 @@ td .empty,
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+@keyframes sheetin {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 /* the single page-load moment: key tags swing onto their hooks */
@@ -1019,7 +1075,7 @@ td .empty,
 }
 .room-card .photo .big-tag {
   font-size: var(--t-2xl);
-  padding: 10px 34px;
+  padding: 10px clamp(20px, 3vw, 34px);
 }
 .room-card .photo::after {
   content: none;
@@ -1143,6 +1199,7 @@ td .empty,
 /* left 42% is a pigeonhole wall; the card sits centered in the remaining space */
 .authwrap {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1200,6 +1257,7 @@ td .empty,
 .home {
   background: var(--paper);
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   z-index: 1;
 }
@@ -1208,7 +1266,8 @@ td .empty,
   display: flex;
   align-items: center;
   gap: 32px;
-  padding: 22px var(--gutter);
+  padding: 22px max(var(--gutter), var(--safe-right)) 22px max(var(--gutter), var(--safe-left));
+  padding-top: calc(22px + var(--safe-top));
 }
 .home-nav .brand {
   margin-right: auto;
@@ -1234,7 +1293,9 @@ td .empty,
   font-weight: 550;
   color: var(--ink-soft);
   padding: 8px 0;
+  min-height: 44px;
   border-bottom: 3px solid transparent;
+  white-space: nowrap;
   transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
 }
 .home-nav .links button:hover {
@@ -1255,6 +1316,9 @@ td .empty,
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   gap: clamp(32px, 4vw, 72px);
   align-items: center;
+}
+.home-hero > * {
+  min-width: 0;
 }
 .home-hero .eyebrow {
   display: block;
@@ -1442,13 +1506,13 @@ td .empty,
 .rooms-preview-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  gap: clamp(16px, 2vw, 24px);
 }
 .rp-card {
   background: var(--paper-raised);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 28px 28px 26px;
+  padding: clamp(20px, 2.2vw, 28px);
   box-shadow: var(--shadow);
   transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
 }
@@ -1479,7 +1543,7 @@ td .empty,
 }
 .rp-card .room-num {
   font-size: var(--t-3xl);
-  padding: 10px 36px;
+  padding: 10px clamp(24px, 3vw, 36px);
   margin-bottom: 14px;
 }
 .rp-card .rp-meta {
@@ -1503,6 +1567,7 @@ td .empty,
 .home-footer {
   border-top: 1px solid var(--line);
   padding: 28px var(--gutter);
+  padding-bottom: calc(28px + var(--safe-bottom));
   text-align: center;
   background: var(--paper-soft);
 }
@@ -1513,150 +1578,20 @@ td .empty,
   margin: 0;
 }
 
-/* ============ RESPONSIVE ============ */
-@media (max-width: 880px) {
-  .home-hero {
-    grid-template-columns: 1fr;
-    min-height: 0;
-    padding-top: 10px;
-  }
-  .home-hero h1 {
-    font-size: 2.75rem;
-  }
-  .hero-visual {
-    height: 380px;
-    margin-top: 20px;
-  }
-  .tilt-card {
-    width: 190px;
-  }
-  .how-grid,
-  .rooms-preview-grid {
-    grid-template-columns: 1fr;
-  }
-  .home-nav {
-    flex-wrap: wrap;
-    padding: 16px 20px;
-  }
-  .home-nav .links {
-    order: 3;
-    width: 100%;
-    justify-content: center;
-  }
-  .how-section,
-  .rooms-preview {
-    padding: 48px 20px 56px;
-  }
-  .home-hero {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-  .authwrap {
-    padding: 24px;
-  }
-  .authwrap::before {
-    display: none;
-  }
-}
-
-@media (max-width: 820px) {
-  .sidebar {
-    display: none;
-  }
-  main {
-    padding: 20px 16px 56px;
-  }
-  .pageHead h1 {
-    font-size: var(--t-2xl);
-  }
-  .grid-4,
-  .grid-3,
-  .grid-2 {
-    grid-template-columns: 1fr;
-  }
-  .field-row {
-    flex-direction: column;
-    gap: 0;
-  }
-  .topbar {
-    padding: 10px 14px;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .identity .whoami {
-    display: none;
-  }
-  .toolbar input[type="text"] {
-    min-width: 0;
-    flex: 1 1 100%;
-  }
-  .modal-head,
-  .modal-body,
-  .modal-foot {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-  .toast-wrap {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-  }
-  .toast {
-    max-width: none;
-  }
-}
-
 /* ============ HELPERS ============ */
 :where(a.navitem) {
   color: inherit;
   text-decoration: none;
 }
 
-/* respect reduced-motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  .grid .room-card:hover,
-  .rp-card:hover {
-    transform: none;
-  }
-}
-
-/* Reports page uses window.print(): keep the printout clean */
-@media print {
-  body {
-    background: #ffffff;
-  }
-  .topbar,
-  .sidebar,
-  .toast-wrap,
-  .toolbar,
-  .btn {
-    display: none !important;
-  }
-  main {
-    padding: 0;
-    max-width: none;
-    overflow: visible;
-  }
-  .card {
-    box-shadow: none;
-    break-inside: avoid;
-  }
-}
 /* ============ NOTIFICATION BELL ============ */
 .bell-wrap {
   position: relative;
 }
 .bell {
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1714,6 +1649,7 @@ td .empty,
 .bell-list {
   max-height: min(70vh, 460px);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .bell-item {
   display: flex;
@@ -1796,4 +1732,486 @@ td .empty,
   font-weight: 700;
   letter-spacing: 0.02em;
   vertical-align: middle;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   Desktop-first, largest breakpoint first so each rule overrides the last.
+   ========================================================================== */
+
+/* ---- very large screens: stop lines of text and card grids sprawling ---- */
+@media (min-width: 1800px) {
+  :root {
+    --gutter: 56px;
+  }
+  .grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---- small laptops / landscape tablets ---- */
+@media (max-width: 1100px) {
+  .grid-4,
+  .grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rooms-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-nav .links {
+    gap: 22px;
+  }
+  .authwrap {
+    padding-left: calc(34% + 24px);
+    padding-right: 24px;
+  }
+  .authwrap::before {
+    width: 34%;
+  }
+}
+
+/* ---- portrait tablets: hero stacks ---- */
+@media (max-width: 1000px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding-top: 12px;
+    padding-bottom: 56px;
+  }
+  .home-hero .lede {
+    max-width: 60ch;
+  }
+  .hero-visual {
+    height: 440px;
+    max-width: 640px;
+    width: 100%;
+    margin: 12px auto 0;
+  }
+  .tilt-card {
+    width: 220px;
+  }
+}
+
+/* ---- tablets: landing goes single column, auth wall goes away ---- */
+@media (max-width: 880px) {
+  .how-grid {
+    grid-template-columns: 1fr;
+  }
+  .rooms-preview-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-nav {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-top: calc(16px + var(--safe-top));
+    padding-bottom: 12px;
+  }
+  .home-nav .links {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+  .how-section,
+  .rooms-preview {
+    padding: 48px var(--gutter) 56px;
+  }
+  .authwrap {
+    padding: 24px;
+  }
+  .authwrap::before {
+    display: none;
+  }
+  .authcard {
+    border-top-width: 5px;
+  }
+}
+
+/* ---- phones + small tablets: sidebar turns into a scrolling top nav ---- */
+@media (max-width: 820px) {
+  :root {
+    --topbar-h: 60px;
+  }
+
+  .topbar {
+    gap: 12px;
+    padding-top: calc(6px + var(--safe-top));
+    padding-bottom: 6px;
+  }
+  .brand-sub,
+  .identity .whoami {
+    display: none;
+  }
+
+  .body-wrap {
+    flex-direction: column;
+  }
+
+  /* the nav strip: swipe sideways, sticks under the topbar */
+  .sidebar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-self: stretch;
+    gap: 6px;
+    width: 100%;
+    height: auto;
+    padding: 8px var(--gutter);
+    padding-left: max(var(--gutter), var(--safe-left));
+    padding-right: max(var(--gutter), var(--safe-right));
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    top: calc(var(--topbar-h) + var(--safe-top));
+    z-index: 40;
+  }
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+  .sidebar .group-label {
+    display: none;
+  }
+  .navitem {
+    width: auto;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 9px 14px;
+    min-height: 44px;
+    white-space: nowrap;
+    font-size: var(--t-sm);
+  }
+  .navitem.active::before {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+  }
+
+  main {
+    padding: 20px var(--gutter) calc(56px + var(--safe-bottom));
+  }
+  .pageHead {
+    margin-bottom: 20px;
+  }
+
+  .grid-4,
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+  /* KPI tiles are small: keep two across until phones get really narrow */
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi {
+    padding: 16px 16px 14px;
+  }
+
+  /* wide tables scroll inside their card instead of squashing */
+  .card > table {
+    min-width: 600px;
+  }
+  th,
+  td {
+    padding: 12px 14px;
+  }
+
+  .toolbar input[type="text"] {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .toolbar select {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+  }
+  .toolbar .spacer {
+    display: none;
+  }
+
+  /* notification panel becomes a full-width dropdown under the topbar */
+  .bell-panel {
+    position: fixed;
+    top: calc(var(--topbar-h) + var(--safe-top) + 8px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .toast-wrap {
+    left: calc(16px + var(--safe-left));
+    right: calc(16px + var(--safe-right));
+    bottom: calc(16px + var(--safe-bottom));
+  }
+  .toast {
+    max-width: none;
+  }
+
+  .modal-head,
+  .modal-body,
+  .modal-foot {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+/* ---- large phones: forms stack, modals become bottom sheets ---- */
+@media (max-width: 640px) {
+  .field-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal {
+    max-width: none;
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+    border-top-width: 4px;
+    animation: sheetin 0.26s var(--ease);
+  }
+  .modal-foot {
+    padding-bottom: calc(18px + var(--safe-bottom));
+  }
+  /* primary action first and easy to reach with a thumb */
+  .modal-foot .btn {
+    flex: 1;
+  }
+
+  .authwrap {
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .authcard {
+    margin: auto 0;
+  }
+
+  .home-hero .cta-row .btn {
+    flex: 1 1 100%;
+  }
+  .hero-visual {
+    height: 380px;
+  }
+  .tilt-card {
+    width: 170px;
+    padding: 40px 16px 18px;
+  }
+  .tilt-card .room-num {
+    font-size: var(--t-xl);
+    padding: 7px 22px;
+    margin-bottom: 12px;
+  }
+  .tilt-card-1 {
+    top: 0;
+    left: 2%;
+  }
+  .tilt-card-2 {
+    top: 12%;
+    right: 0;
+  }
+  .tilt-card-3 {
+    top: 54%;
+    left: 22%;
+  }
+
+  .rooms-preview-head,
+  .pageHead {
+    align-items: flex-start;
+  }
+  .home-nav .links {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .home-nav .links::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---- small phones ---- */
+@media (max-width: 480px) {
+  :root {
+    --gutter: 14px;
+  }
+
+  body {
+    font-size: 1rem;
+  }
+  .brand-name {
+    font-size: 1.125rem;
+  }
+  .brand .mark {
+    width: 34px;
+    height: 34px;
+  }
+
+  .grid-4 {
+    gap: 10px;
+  }
+  .kpi .val {
+    font-size: 1.75rem;
+  }
+  .kpi .eyebrow {
+    font-size: var(--t-xs);
+  }
+
+  .card-pad {
+    padding: 16px;
+  }
+  .card > .checklist-item {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .room-card .photo {
+    height: 120px;
+  }
+  .room-card .info {
+    padding: 16px;
+  }
+
+  .steps {
+    gap: 4px;
+  }
+  .step {
+    padding: 10px 4px;
+    font-size: var(--t-xs);
+  }
+
+  .hero-visual {
+    height: 340px;
+  }
+  .tilt-card {
+    width: 148px;
+    padding: 38px 12px 14px;
+  }
+  .tilt-card .ring {
+    width: 26px;
+    height: 26px;
+    margin-bottom: 8px;
+  }
+  .tilt-card .room-label {
+    font-size: var(--t-xs);
+  }
+  .tilt-card .room-num {
+    font-size: 1.125rem;
+    padding: 6px 16px;
+  }
+
+  .modal-head,
+  .modal-body,
+  .modal-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .modal-foot {
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .pageHead .btn {
+    width: 100%;
+  }
+}
+
+/* ---- very short landscape screens (phones on their side) ---- */
+@media (max-height: 480px) and (orientation: landscape) {
+  .home-hero {
+    min-height: 0;
+  }
+  .modal {
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .modal-backdrop {
+    align-items: stretch;
+  }
+  .sidebar {
+    top: 0;
+  }
+}
+
+/* ---- touch devices: no hover lifts, bigger tap targets ---- */
+@media (hover: none) {
+  .grid .room-card:hover,
+  .rp-card:hover {
+    transform: none;
+    box-shadow: var(--shadow);
+    border-color: var(--line);
+  }
+  .tilt-card-1:hover,
+  .tilt-card-2:hover,
+  .tilt-card-3:hover {
+    transform: rotate(var(--rot));
+  }
+  tbody tr:hover {
+    background: transparent;
+  }
+}
+@media (pointer: coarse) {
+  .btn.small {
+    min-height: 40px;
+  }
+  .linklike,
+  .link-btn {
+    padding: 6px 0;
+  }
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .grid .room-card:hover,
+  .rp-card:hover {
+    transform: none;
+  }
+}
+
+/* Reports page uses window.print(): keep the printout clean */
+@media print {
+  body {
+    background: #ffffff;
+  }
+  .topbar,
+  .sidebar,
+  .toast-wrap,
+  .toolbar,
+  .btn {
+    display: none !important;
+  }
+  main {
+    padding: 0;
+    max-width: none;
+    overflow: visible;
+  }
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .card > table {
+    min-width: 0;
+  }
 }

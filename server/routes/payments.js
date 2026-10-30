@@ -3,8 +3,15 @@ import Invoice from '../models/Invoice.js';
 import Tenant from '../models/Tenant.js';
 import { requireAuth, requireTenant } from '../middleware/auth.js';
 import { HttpError } from '../services/housing.js';
-import { settleInvoice } from '../services/billing.js';
-import { paymongoEnabled, createCheckout, createBulkCheckout, getCheckout, paidInfo, verifyWebhook } from '../services/paymongo.js';
+import { settleInvoice, settleMany } from '../services/billing.js';
+import {
+  paymongoEnabled,
+  createCheckout,
+  createBulkCheckout,
+  getCheckout,
+  paidInfo,
+  verifyWebhook,
+} from '../services/paymongo.js';
 
 const router = Router();
 
@@ -47,48 +54,8 @@ router.post('/checkout/:id', requireTenant, async (req, res) => {
   res.json({ url: session.url });
 });
 
-// POST /api/payments/verify/:id → called when the tenant lands back on the site after paying.
-// Asks PayMongo directly whether the invoice was paid, so it works even without the webhook (e.g. on localhost).
-router.post('/verify/:id', requireTenant, async (req, res) => {
-  const invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.user.id });
-  if (!invoice) throw new HttpError(404, 'Invoice not found');
-  if (invoice.status === 'paid') return res.json({ paid: true, invoice });
-  if (!paymongoEnabled()) return res.json({ paid: false, invoice });
-
-  // newest first; a tenant may have opened more than one checkout page
-  for (const sessionId of [...invoice.checkoutSessions].reverse()) {
-    const info = paidInfo(await getCheckout(sessionId));
-    if (!info.paid) continue;
-    const paid = await settleInvoice({ _id: invoice._id }, info.method);
-    return res.json({ paid: true, invoice: paid || (await Invoice.findById(invoice._id)) });
-  }
-  res.json({ paid: false, invoice });
-});
-
-// POST /api/payments/webhook → PayMongo calls this by itself when a payment succeeds (no login).
-// Needs a public URL and PAYMONGO_WEBHOOK_SECRET; the signature proves the call really came from PayMongo.
-router.post('/webhook', async (req, res) => {
-  if (!verifyWebhook(req.rawBody?.toString('utf8'), req.headers['paymongo-signature']))
-    return res.status(400).json({ message: 'Bad signature' });
-
-  const event = req.body?.data?.attributes;
-  if (event?.type === 'checkout_session.payment.paid') {
-  const session = event.data;
-  const method = paidInfo(session).method || null;
-  const attrs = session?.attributes;
-
-  if (attrs?.metadata?.bulk === 'true') {
-    const invoices = await Invoice.find({ checkoutSessions: session.id, status: 'unpaid' }).select('_id');
-    await Promise.all(invoices.map((i) => settleInvoice({ _id: i._id }, method)));
-  } else {
-    const invoiceId = attrs?.metadata?.invoice_id || attrs?.reference_number;
-    if (invoiceId) await settleInvoice({ _id: invoiceId }, method);
-  }
-}
-  res.json({ received: true });
-});
-
-// POST /api/payments/checkout-all → pay every unpaid invoice (overdue included) in one go
+// POST /api/payments/checkout-all → pay every unpaid invoice (overdue included) in one go.
+// One PayMongo session with one line item per invoice; the tenant gets a single combined receipt.
 router.post('/checkout-all', requireTenant, async (req, res) => {
   const invoices = await Invoice.find({ tenant: req.user.id, status: 'unpaid' }).sort({ due: 1, _id: 1 });
   if (!invoices.length) throw new HttpError(409, 'You have no unpaid invoices');
@@ -96,9 +63,9 @@ router.post('/checkout-all', requireTenant, async (req, res) => {
   if (!paymongoEnabled()) {
     if (!simulatedAllowed())
       throw new HttpError(503, 'Online payment is not available right now. Please pay at the front desk.');
-    const settled = (
-      await Promise.all(invoices.map((i) => settleInvoice({ _id: i._id, tenant: req.user.id })))
-    ).filter(Boolean);
+    const settled = await settleMany(
+      invoices.map((i) => ({ _id: i._id, tenant: req.user.id }))
+    );
     return res.json({ simulated: true, count: settled.length, invoices: settled });
   }
 
@@ -120,6 +87,24 @@ router.post('/checkout-all', requireTenant, async (req, res) => {
   });
 });
 
+// POST /api/payments/verify/:id → called when the tenant lands back on the site after paying.
+// Asks PayMongo directly whether the invoice was paid, so it works even without the webhook (e.g. on localhost).
+router.post('/verify/:id', requireTenant, async (req, res) => {
+  const invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.user.id });
+  if (!invoice) throw new HttpError(404, 'Invoice not found');
+  if (invoice.status === 'paid') return res.json({ paid: true, invoice });
+  if (!paymongoEnabled()) return res.json({ paid: false, invoice });
+
+  // newest first; a tenant may have opened more than one checkout page
+  for (const sessionId of [...invoice.checkoutSessions].reverse()) {
+    const info = paidInfo(await getCheckout(sessionId));
+    if (!info.paid) continue;
+    const paid = await settleInvoice({ _id: invoice._id }, info.method);
+    return res.json({ paid: true, invoice: paid || (await Invoice.findById(invoice._id)) });
+  }
+  res.json({ paid: false, invoice });
+});
+
 // POST /api/payments/verify-all → call when the tenant returns from PayMongo (?paid=all)
 router.post('/verify-all', requireTenant, async (req, res) => {
   const unpaid = await Invoice.find({ tenant: req.user.id, status: 'unpaid' });
@@ -130,8 +115,9 @@ router.post('/verify-all', requireTenant, async (req, res) => {
       const info = paidInfo(await getCheckout(sessionId));
       if (!info.paid) continue;
       const covered = unpaid.filter((i) => i.checkoutSessions.includes(sessionId));
-      await Promise.all(
-        covered.map((i) => settleInvoice({ _id: i._id, tenant: req.user.id }, info.method))
+      await settleMany(
+        covered.map((i) => ({ _id: i._id, tenant: req.user.id })),
+        info.method
       );
     }
   }
@@ -139,5 +125,28 @@ router.post('/verify-all', requireTenant, async (req, res) => {
   res.json({ paid: remaining < unpaid.length, settled: unpaid.length - remaining, remaining });
 });
 
+// POST /api/payments/webhook → PayMongo calls this by itself when a payment succeeds (no login).
+// Needs a public URL and PAYMONGO_WEBHOOK_SECRET; the signature proves the call really came from PayMongo.
+router.post('/webhook', async (req, res) => {
+  if (!verifyWebhook(req.rawBody?.toString('utf8'), req.headers['paymongo-signature']))
+    return res.status(400).json({ message: 'Bad signature' });
+
+  const event = req.body?.data?.attributes;
+  if (event?.type === 'checkout_session.payment.paid') {
+    const session = event.data;
+    const method = paidInfo(session).method || null;
+    const attrs = session?.attributes;
+
+    if (attrs?.metadata?.bulk === 'true') {
+      // a "pay all" session: settle every invoice that was in it
+      const invoices = await Invoice.find({ checkoutSessions: session.id, status: 'unpaid' }).select('_id');
+      await settleMany(invoices.map((i) => ({ _id: i._id })), method);
+    } else {
+      const invoiceId = attrs?.metadata?.invoice_id || attrs?.reference_number;
+      if (invoiceId) await settleInvoice({ _id: invoiceId }, method);
+    }
+  }
+  res.json({ received: true });
+});
 
 export default router;

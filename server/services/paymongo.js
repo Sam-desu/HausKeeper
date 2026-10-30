@@ -36,23 +36,25 @@ async function call(method, path, body) {
   return json.data;
 }
 
-// Returns { id, url }. Amount is converted to centavos.
-export async function createCheckout({ invoice, tenant, successUrl, cancelUrl }) {
+// One PayMongo line item for an invoice. Amount is converted to centavos.
+const lineItem = (invoice) => {
   const label = invoice.kind === 'maintenance' ? 'Repair charge' : 'Rent';
-  const name = `${label} · ${invoice.period}`.slice(0, 120);
+  return {
+    currency: 'PHP',
+    amount: Math.round(invoice.amount * 100),
+    name: `${label} · ${invoice.period}`.slice(0, 120),
+    quantity: 1,
+    description: `Invoice ${invoice.id} · Room ${invoice.room}`,
+  };
+};
+
+// Returns { id, url } for a single invoice.
+export async function createCheckout({ invoice, tenant, successUrl, cancelUrl }) {
   const data = await call('POST', '/checkout_sessions', {
     data: {
       attributes: {
         billing: { name: tenant.name, email: tenant.email },
-        line_items: [
-          {
-            currency: 'PHP',
-            amount: Math.round(invoice.amount * 100),
-            name,
-            quantity: 1,
-            description: `Invoice ${invoice.id} · Room ${invoice.room}`,
-          },
-        ],
+        line_items: [lineItem(invoice)],
         payment_method_types: METHODS,
         description: `Invoice ${invoice.id}`,
         reference_number: invoice.id,
@@ -62,6 +64,29 @@ export async function createCheckout({ invoice, tenant, successUrl, cancelUrl })
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: { invoice_id: invoice.id },
+      },
+    },
+  });
+  return { id: data.id, url: data.attributes.checkout_url };
+}
+
+// One checkout session covering several invoices. Returns { id, url }.
+// Invoice ids are not stored in metadata (size limits); each invoice keeps the session id instead.
+export async function createBulkCheckout({ invoices, tenant, successUrl, cancelUrl }) {
+  const data = await call('POST', '/checkout_sessions', {
+    data: {
+      attributes: {
+        billing: { name: tenant.name, email: tenant.email },
+        line_items: invoices.map(lineItem),
+        payment_method_types: METHODS,
+        description: `${invoices.length} invoices`,
+        reference_number: `BULK-${Date.now()}`,
+        send_email_receipt: false,
+        show_description: true,
+        show_line_items: true,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: { bulk: 'true', tenant_id: String(tenant._id) },
       },
     },
   });
@@ -95,37 +120,4 @@ export function verifyWebhook(rawBody, header) {
   const eq = (a) =>
     !!a && a.length === expected.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(expected));
   return eq(parts.te) || eq(parts.li);
-}
-
-const lineItem = (invoice) => {
-  const label = invoice.kind === 'maintenance' ? 'Repair charge' : 'Rent';
-  return {
-    currency: 'PHP',
-    amount: Math.round(invoice.amount * 100),
-    name: `${label} · ${invoice.period}`.slice(0, 120),
-    quantity: 1,
-    description: `Invoice ${invoice.id} · Room ${invoice.room}`,
-  };
-};
-
-// One checkout session covering several invoices. Returns { id, url }.
-export async function createBulkCheckout({ invoices, tenant, successUrl, cancelUrl }) {
-  const data = await call('POST', '/checkout_sessions', {
-    data: {
-      attributes: {
-        billing: { name: tenant.name, email: tenant.email },
-        line_items: invoices.map(lineItem),
-        payment_method_types: METHODS,
-        description: `${invoices.length} invoices`,
-        reference_number: `BULK-${Date.now()}`,
-        send_email_receipt: false,
-        show_description: true,
-        show_line_items: true,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        metadata: { bulk: 'true', tenant_id: String(tenant._id) },
-      },
-    },
-  });
-  return { id: data.id, url: data.attributes.checkout_url };
 }

@@ -9,6 +9,7 @@ import Invoice from '../models/Invoice.js';
 import { HttpError } from '../services/housing.js';
 import { notifyTenant, notifyStaff, notifyStaffMember, peso } from '../services/notify.js';
 import { isDateStr, todayManila } from '../utils/dates.js';
+import { ticketEmail, newInvoiceEmail } from '../utils/emailTemplates.js';
 
 const router = Router();
 
@@ -117,14 +118,27 @@ router.patch('/:id', requireStaff('maintenance'), async (req, res) => {
 
   await ticket.save();
 
-  if (ticket.status !== prevStatus)
-    notifyTenant(ticket.tenant, {
-      type: 'ticket',
-      title: `Request ${ticket.id} is now ${ticket.status.replace('-', ' ')}`,
-      template: 'ticket',
-      vars: { title: ticket.title, status: ticket.status.replace('-', ' ') },
-      link: '/tenant/maintenance',
-    });
+  if (ticket.status !== prevStatus) {
+  const assignedName = ticket.assigned
+    ? (await Staff.findById(ticket.assigned).select('name'))?.name
+    : '';
+
+  notifyTenant(ticket.tenant, {
+    type: 'ticket',
+    title: `Request ${ticket.id} is now ${ticket.status.replace('-', ' ')}`,
+    template: 'ticket',
+    vars: { title: ticket.title, status: ticket.status.replace('-', ' ') },
+    html: (t, settings) =>
+      ticketEmail({
+        propertyName: settings.propertyName,
+        name: t.name,
+        ticket,
+        assignedName,
+        buttonUrl: process.env.APP_URL ? `${process.env.APP_URL}/tenant/maintenance` : '',
+      }),
+    link: '/tenant/maintenance',
+  });
+}
   if (ticket.assigned && String(ticket.assigned) !== prevAssigned)
     notifyStaffMember(ticket.assigned, {
       type: 'ticket',
