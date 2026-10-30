@@ -1119,6 +1119,7 @@ export function TenantBilling() {
   const { data, loading, error, reload } = useApi("/invoices/mine");
   const config = useApi("/payments/config");
   const [paying, setPaying] = useState(null);
+  const [payingAll, setPayingAll] = useState(false);
   const gateway = !!config.data?.gateway;
 
   // PayMongo sends the tenant back here as /tenant/billing?paid=INV-2207 (or ?cancelled=...).
@@ -1132,6 +1133,20 @@ export function TenantBilling() {
     setParams({}, { replace: true });
     if (cancelledId) {
       toast("Payment cancelled. You have not been charged.");
+      return;
+    }
+    if (paidId === "all") {
+      api
+        .post("/payments/verify-all")
+        .then((r) =>
+          toast(
+            r.settled
+              ? `Payment received for ${r.settled} invoice${r.settled > 1 ? "s" : ""}`
+              : "We haven't received confirmation yet. Give it a minute and refresh this page.",
+          ),
+        )
+        .catch((err) => toast(err.message))
+        .finally(reload);
       return;
     }
     api
@@ -1175,16 +1190,39 @@ export function TenantBilling() {
     setPaying(null);
     reload();
   };
+  
+  const payAll = async () => {
+    setPayingAll(true);
+    try {
+      const r = await api.post("/payments/checkout-all");
+      if (r.url) {
+        window.location.assign(r.url);
+        return; // leaving the page: keep the button disabled
+      }
+      toast(`Payment received for ${r.count} invoice${r.count > 1 ? "s" : ""}`);
+    } catch (err) {
+      toast(err.message);
+    }
+    setPayingAll(false);
+    reload();
+  };
 
   return (
     <>
       <div className="pageHead">
-        <div>
-          <span className="eyebrow">Account</span>
-          <h1>Billing &amp; payments</h1>
-          <p>Review your invoices and payment history.</p>
-        </div>
-      </div>
+  <div>
+    <span className="eyebrow">Account</span>
+    <h1>Billing &amp; payments</h1>
+    <p>Review your invoices and payment history.</p>
+  </div>
+  {unpaid.length > 1 ? (
+    <button className="btn brass" onClick={payAll} disabled={payingAll || !!paying}>
+      {payingAll
+        ? "Opening…"
+        : `Pay all (${unpaid.length}) · ${peso(outstanding)}`}
+    </button>
+  ) : null}
+</div>
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
         <div className="card kpi">
           <span className="eyebrow">Outstanding</span>

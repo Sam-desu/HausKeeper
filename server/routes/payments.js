@@ -4,7 +4,7 @@ import Tenant from '../models/Tenant.js';
 import { requireAuth, requireTenant } from '../middleware/auth.js';
 import { HttpError } from '../services/housing.js';
 import { settleInvoice } from '../services/billing.js';
-import { paymongoEnabled, createCheckout, getCheckout, paidInfo, verifyWebhook } from '../services/paymongo.js';
+import { paymongoEnabled, createCheckout, createBulkCheckout, getCheckout, paidInfo, verifyWebhook } from '../services/paymongo.js';
 
 const router = Router();
 
@@ -73,11 +73,71 @@ router.post('/webhook', async (req, res) => {
 
   const event = req.body?.data?.attributes;
   if (event?.type === 'checkout_session.payment.paid') {
-    const session = event.data;
-    const invoiceId = session?.attributes?.metadata?.invoice_id || session?.attributes?.reference_number;
-    if (invoiceId) await settleInvoice({ _id: invoiceId }, paidInfo(session).method || null);
+  const session = event.data;
+  const method = paidInfo(session).method || null;
+  const attrs = session?.attributes;
+
+  if (attrs?.metadata?.bulk === 'true') {
+    const invoices = await Invoice.find({ checkoutSessions: session.id, status: 'unpaid' }).select('_id');
+    await Promise.all(invoices.map((i) => settleInvoice({ _id: i._id }, method)));
+  } else {
+    const invoiceId = attrs?.metadata?.invoice_id || attrs?.reference_number;
+    if (invoiceId) await settleInvoice({ _id: invoiceId }, method);
   }
+}
   res.json({ received: true });
 });
+
+// POST /api/payments/checkout-all → pay every unpaid invoice (overdue included) in one go
+router.post('/checkout-all', requireTenant, async (req, res) => {
+  const invoices = await Invoice.find({ tenant: req.user.id, status: 'unpaid' }).sort({ due: 1, _id: 1 });
+  if (!invoices.length) throw new HttpError(409, 'You have no unpaid invoices');
+
+  if (!paymongoEnabled()) {
+    if (!simulatedAllowed())
+      throw new HttpError(503, 'Online payment is not available right now. Please pay at the front desk.');
+    const settled = (
+      await Promise.all(invoices.map((i) => settleInvoice({ _id: i._id, tenant: req.user.id })))
+    ).filter(Boolean);
+    return res.json({ simulated: true, count: settled.length, invoices: settled });
+  }
+
+  const tenant = await Tenant.findById(req.user.id);
+  const session = await createBulkCheckout({
+    invoices,
+    tenant,
+    successUrl: `${appUrl()}/tenant/billing?paid=all`,
+    cancelUrl: `${appUrl()}/tenant/billing?cancelled=all`,
+  });
+  await Invoice.updateMany(
+    { _id: { $in: invoices.map((i) => i._id) } },
+    { $push: { checkoutSessions: { $each: [session.id], $slice: -5 } } }
+  );
+  res.json({
+    url: session.url,
+    count: invoices.length,
+    total: invoices.reduce((s, i) => s + i.amount, 0),
+  });
+});
+
+// POST /api/payments/verify-all → call when the tenant returns from PayMongo (?paid=all)
+router.post('/verify-all', requireTenant, async (req, res) => {
+  const unpaid = await Invoice.find({ tenant: req.user.id, status: 'unpaid' });
+  if (paymongoEnabled()) {
+    // each session id once, newest first
+    const sessionIds = [...new Set(unpaid.flatMap((i) => [...i.checkoutSessions].reverse()))];
+    for (const sessionId of sessionIds) {
+      const info = paidInfo(await getCheckout(sessionId));
+      if (!info.paid) continue;
+      const covered = unpaid.filter((i) => i.checkoutSessions.includes(sessionId));
+      await Promise.all(
+        covered.map((i) => settleInvoice({ _id: i._id, tenant: req.user.id }, info.method))
+      );
+    }
+  }
+  const remaining = await Invoice.countDocuments({ tenant: req.user.id, status: 'unpaid' });
+  res.json({ paid: remaining < unpaid.length, settled: unpaid.length - remaining, remaining });
+});
+
 
 export default router;

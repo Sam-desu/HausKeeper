@@ -1,14 +1,35 @@
 const esc = (s) =>
-  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
 
-const INK = '#111827';
-const MUTED = '#6b7280';
-const LINE = '#e5e7eb';
+const INK = "#111827";
+const MUTED = "#6b7280";
+const LINE = "#e5e7eb";
 
 const THEMES = {
-  success: { accent: '#16a34a', dark: '#15803d', soft: '#dcfce7', light: '#d1fae5' },
-  danger:  { accent: '#dc2626', dark: '#b91c1c', soft: '#fee2e2', light: '#fecaca' },
-  info:    { accent: '#4f46e5', dark: '#4338ca', soft: '#e0e7ff', light: '#c7d2fe' },
+  success: {
+    accent: "#16a34a",
+    dark: "#15803d",
+    soft: "#dcfce7",
+    light: "#d1fae5",
+  },
+  danger: {
+    accent: "#dc2626",
+    dark: "#b91c1c",
+    soft: "#fee2e2",
+    light: "#fecaca",
+  },
+  info: {
+    accent: "#4f46e5",
+    dark: "#4338ca",
+    soft: "#e0e7ff",
+    light: "#c7d2fe",
+  },
 };
 
 const row = (label, value, valueColor = INK) => `
@@ -18,8 +39,20 @@ const row = (label, value, valueColor = INK) => `
   </tr>`;
 
 function layout({
-  theme, propertyName, preheader, icon, title, subtitle,
-  amountLabel, amountText, badge, rows, buttonUrl, buttonText, note,
+  theme,
+  propertyName,
+  preheader,
+  icon,
+  title,
+  subtitle,
+  amountLabel,
+  amountText,
+  badge,
+  rows,
+  hero,
+  buttonUrl,
+  buttonText,
+  note,
 }) {
   const c = THEMES[theme];
   return `<!DOCTYPE html>
@@ -56,6 +89,9 @@ function layout({
           </td>
         </tr>
 
+        ${
+          hero ||
+          `
         <tr>
           <td align="center" style="padding:32px 24px 8px;">
             <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};font-weight:600;">${esc(amountLabel)}</div>
@@ -64,15 +100,23 @@ function layout({
               ● ${esc(badge)}
             </span>
           </td>
-        </tr>
+        </tr>`
+        }
 
+                ${
+                  rows
+                    ? `
         <tr>
           <td style="padding:24px 32px 8px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
           </td>
-        </tr>
+        </tr>`
+                    : ""
+                }
 
-        ${buttonUrl ? `
+        ${
+          buttonUrl
+            ? `
         <tr>
           <td align="center" style="padding:28px 32px 36px;">
             <a href="${esc(buttonUrl)}"
@@ -80,7 +124,9 @@ function layout({
               ${esc(buttonText)}
             </a>
           </td>
-        </tr>` : '<tr><td style="padding-bottom:28px;"></td></tr>'}
+        </tr>`
+            : '<tr><td style="padding-bottom:28px;"></td></tr>'
+        }
 
         <tr>
           <td align="center" bgcolor="#f9fafb" style="background:#f9fafb;padding:22px 24px;border-top:1px solid ${LINE};">
@@ -97,75 +143,137 @@ function layout({
 }
 
 /* ---------- 1. Payment receipt (green) ---------- */
-export function paymentReceiptEmail({ propertyName = 'HausKeeper', name, invoice, methodLabel, amountText, buttonUrl }) {
+export function paymentReceiptEmail({
+  propertyName = "HausKeeper",
+  name,
+  invoice,
+  methodLabel,
+  amountText,
+  buttonUrl,
+}) {
   return layout({
-    theme: 'success',
+    theme: "success",
     propertyName,
     preheader: `We received your ₱${amountText} payment for invoice ${invoice.id}.`,
-    icon: '✓',
-    title: 'Payment received',
-    subtitle: `Thank you, ${name || 'there'}!`,
-    amountLabel: 'Amount paid',
+    icon: "✓",
+    title: "Payment received",
+    subtitle: `Thank you, ${name || "there"}!`,
+    amountLabel: "Amount paid",
     amountText,
-    badge: 'PAID',
+    badge: "PAID",
     rows: [
-      row('Invoice', invoice.id),
-      row('Billing period', invoice.period),
-      row('Room', invoice.room),
-      row('Payment method', methodLabel || '—'),
-      row('Paid on', invoice.paidOn),
-    ].join(''),
+      row("Invoice", invoice.id),
+      row("Billing period", invoice.period),
+      row("Room", invoice.room),
+      row("Payment method", methodLabel || "—"),
+      row("Paid on", invoice.paidOn),
+    ].join(""),
     buttonUrl,
-    buttonText: 'View billing history',
-    note: 'Keep this email as your payment receipt.<br>Questions? Just reply to this email or message the admin.',
+    buttonText: "View billing history",
+    note: "Keep this email as your payment receipt.<br>Questions? Just reply to this email or message the admin.",
   });
 }
 
 /* ---------- 2. New invoice (indigo) ---------- */
-export function newInvoiceEmail({ propertyName = 'HausKeeper', name, invoice, amountText, buttonUrl }) {
+export function newInvoiceEmail({
+  propertyName = "HausKeeper",
+  name,
+  invoice,
+  amountText,
+  buttonUrl,
+}) {
   return layout({
-    theme: 'info',
+    theme: "info",
     propertyName,
     preheader: `Invoice ${invoice.id}: ₱${amountText} due ${invoice.due}.`,
-    icon: '🧾',
-    title: 'New invoice',
-    subtitle: `Hi ${name || 'there'}, your invoice is ready.`,
-    amountLabel: 'Amount due',
+    icon: "🧾",
+    title: "New invoice",
+    subtitle: `Hi ${name || "there"}, your invoice is ready.`,
+    amountLabel: "Amount due",
     amountText,
-    badge: 'UNPAID',
+    badge: "UNPAID",
     rows: [
-      row('Invoice', invoice.id),
-      row('Billing period', invoice.period),
-      row('Room', invoice.room),
-      row('Due date', invoice.due, '#4338ca'),
-    ].join(''),
+      row("Invoice", invoice.id),
+      row("Billing period", invoice.period),
+      row("Room", invoice.room),
+      row("Due date", invoice.due, "#4338ca"),
+    ].join(""),
     buttonUrl,
-    buttonText: 'View & pay invoice',
-    note: 'Please pay on or before the due date to avoid a late notice.<br>Questions? Just reply to this email or message the admin.',
+    buttonText: "View & pay invoice",
+    note: "Please pay on or before the due date to avoid a late notice.<br>Questions? Just reply to this email or message the admin.",
   });
 }
 
 /* ---------- 3. Overdue notice (red) ---------- */
-export function overdueEmail({ propertyName = 'HausKeeper', name, invoice, amountText, daysLate, buttonUrl }) {
-  const lateText = daysLate > 0 ? `${daysLate} day${daysLate === 1 ? '' : 's'} overdue` : 'Overdue';
+export function overdueEmail({
+  propertyName = "HausKeeper",
+  name,
+  invoice,
+  amountText,
+  daysLate,
+  buttonUrl,
+}) {
+  const lateText =
+    daysLate > 0
+      ? `${daysLate} day${daysLate === 1 ? "" : "s"} overdue`
+      : "Overdue";
   return layout({
-    theme: 'danger',
+    theme: "danger",
     propertyName,
     preheader: `Invoice ${invoice.id} (₱${amountText}) was due ${invoice.due}.`,
-    icon: '!',
-    title: 'Payment overdue',
-    subtitle: `Hi ${name || 'there'}, this is a friendly reminder.`,
-    amountLabel: 'Amount overdue',
+    icon: "!",
+    title: "Payment overdue",
+    subtitle: `Hi ${name || "there"}, this is a friendly reminder.`,
+    amountLabel: "Amount overdue",
     amountText,
     badge: lateText.toUpperCase(),
     rows: [
-      row('Invoice', invoice.id),
-      row('Billing period', invoice.period),
-      row('Room', invoice.room),
-      row('Was due on', invoice.due, '#b91c1c'),
-    ].join(''),
+      row("Invoice", invoice.id),
+      row("Billing period", invoice.period),
+      row("Room", invoice.room),
+      row("Was due on", invoice.due, "#b91c1c"),
+    ].join(""),
     buttonUrl,
-    buttonText: 'Pay now',
-    note: 'If you have already paid, please ignore this message.<br>Need more time? Reply to this email or talk to the admin.',
+    buttonText: "Pay now",
+    note: "If you have already paid, please ignore this message.<br>Need more time? Reply to this email or talk to the admin.",
+  });
+}
+
+/* ---------- 4. Verification code / OTP (indigo) ---------- */
+export function otpEmail({
+  propertyName = "HausKeeper",
+  name,
+  code,
+  expiresInMinutes = 10,
+}) {
+  const c = THEMES.info;
+  const hero = `
+        <tr>
+          <td align="center" style="padding:32px 24px 8px;">
+            <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};font-weight:600;">Your verification code</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px auto 14px;">
+              <tr>
+                <td align="center" bgcolor="${c.soft}"
+                  style="background:${c.soft};border:2px dashed ${c.accent};border-radius:14px;padding:18px 28px;">
+                  <span style="font-family:'SF Mono',Menlo,Consolas,'Courier New',monospace;font-size:38px;font-weight:800;letter-spacing:10px;color:${c.dark};">${esc(code)}</span>
+                </td>
+              </tr>
+            </table>
+            <div style="font-size:14px;color:${MUTED};line-height:1.6;">
+              Enter this code on the sign-up page to verify your email.<br>
+              It expires in <b style="color:${INK};">${esc(expiresInMinutes)} minutes</b>.
+            </div>
+          </td>
+        </tr>`;
+
+  return layout({
+    theme: "info",
+    propertyName,
+    preheader: `Your ${propertyName} verification code is ${code}. It expires in ${expiresInMinutes} minutes.`,
+    icon: "🔒",
+    title: "Verify your email",
+    subtitle: `Hi ${name || "there"}, welcome to ${propertyName}!`,
+    hero,
+    note: "Never share this code with anyone. Our staff will never ask for it.<br>If you didn’t try to register, you can safely ignore this email.",
   });
 }

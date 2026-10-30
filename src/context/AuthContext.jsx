@@ -40,8 +40,8 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, [applySession, clear]);
 
-  const login = async (apiRole, identifier, password) => {
-    const res = await api.post('/auth/login', { role: apiRole, identifier, password });
+  const login = async (apiRole, identifier, password, captcha) => {
+    const res = await api.post('/auth/login', { role: apiRole, identifier, password, captcha });
     applySession(res);
     return res.user;
   };

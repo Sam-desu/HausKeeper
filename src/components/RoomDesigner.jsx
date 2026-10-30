@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Stage, Layer, Rect, Group, Text, Shape } from "react-konva";
+import { useNavigate } from "react-router-dom";
 import { useApi } from "../useApi.js";
 import { api } from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -50,12 +51,6 @@ export const FLOORS = [
   { id: "carpet", label: "Carpet", kind: "checker", step: 1, a: "#8d9aaa", b: "#8896a7", line: null },
 ];
 const FLOOR_BY_ID = Object.fromEntries(FLOORS.map((f) => [f.id, f]));
-
-const ROOM_SIZES = [
-  { cols: 8, rows: 6, label: "Compact" },
-  { cols: 10, rows: 8, label: "Standard" },
-  { cols: 14, rows: 10, label: "Spacious" },
-];
 
 const EMPTY = { cols: 10, rows: 8, floor: "oak", items: [] };
 
@@ -181,7 +176,7 @@ function drawGrid(ctx, cols, rows) {
   ctx.stroke();
 }
 
-const Item = React.memo(function Item({ item, cols, rows, selected, clash, brass, onSelect, onMove }) {
+const Item = React.memo(function Item({ item, cols, rows, selected, clash, brass, onSelect, onMove, readOnly }) {
   const d = BY_TYPE[item.type];
   const cat = CATS[d.cat];
   const { w, h } = footprint(item);
@@ -196,7 +191,8 @@ const Item = React.memo(function Item({ item, cols, rows, selected, clash, brass
     <Group
       x={item.x * CELL}
       y={item.y * CELL}
-      draggable
+      draggable={!readOnly}
+      listening={!readOnly}
       onMouseDown={() => onSelect(item.id)}
       onTouchStart={() => onSelect(item.id)}
       onMouseEnter={(e) => cursor(e, "grab")}
@@ -241,10 +237,91 @@ const Item = React.memo(function Item({ item, cols, rows, selected, clash, brass
   );
 });
 
+/* ---------------- read-only picture of a saved layout (used on the admin side) ---------------- */
+
+export function LayoutPreview({ layout, filename = "room-layout" }) {
+  const layoutData = useMemo(() => sanitize(layout), [layout]);
+  const { cols, rows, items } = layoutData;
+  const floor = FLOOR_BY_ID[layoutData.floor];
+  const wrapRef = useRef(null);
+  const stageRef = useRef(null);
+  const [boxW, setBoxW] = useState(640);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(([entry]) => setBoxW(Math.floor(entry.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const worldW = cols * CELL;
+  const worldH = rows * CELL;
+  const scale = Math.min(1.3, Math.max(0.3, boxW / worldW));
+  const drawOrder = useMemo(() => [...items].sort((a, b) => BY_TYPE[a.type].layer - BY_TYPE[b.type].layer), [items]);
+
+  const counts = useMemo(() => {
+    const c = {};
+    items.forEach((i) => { c[i.type] = (c[i.type] || 0) + 1; });
+    return Object.entries(c).map(([type, n]) => `${n} × ${BY_TYPE[type].label}`);
+  }, [items]);
+
+  const save = () => {
+    const a = document.createElement("a");
+    a.href = stageRef.current.toDataURL({ pixelRatio: 2 / scale });
+    a.download = `${filename}.png`;
+    a.click();
+  };
+
+  return (
+    <div>
+      <div ref={wrapRef} style={{ width: "100%" }}>
+        <Stage ref={stageRef} width={worldW * scale} height={worldH * scale} scaleX={scale} scaleY={scale}>
+          <Layer listening={false}>
+            <Shape sceneFunc={(ctx) => drawFloor(ctx, floor, cols, rows)} />
+            <Rect width={worldW} height={worldH} stroke="#45464a" strokeWidth={10} />
+          </Layer>
+          <Layer listening={false}>
+            {drawOrder.map((it) => (
+              <Item key={it.id} item={it} cols={cols} rows={rows} brass="#b08a3e" readOnly />
+            ))}
+          </Layer>
+        </Stage>
+      </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginTop: 12, flexWrap: "wrap" }}>
+        <small style={{ color: "var(--slate-dark)" }}>
+          {items.length ? counts.join(" · ") : "The tenant saved an empty room."}
+          {` · ${cols * 0.5} × ${rows * 0.5} m · ${floor.label}`}
+        </small>
+        <button className="btn secondary small" onClick={save}>Download picture</button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- page wrapper (loads the saved layout) ---------------- */
 
 export function RoomDesigner() {
-  const { data, loading, error, reload } = useApi("/room-layouts/mine");
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const hasRoom = !!user?.room;
+  // no room → don't even ask the server for a layout
+  const { data, loading, error, status, reload } = useApi(hasRoom ? "/room-layouts/mine" : null);
+
+  // the designer is only for tenants who have rented a room (the server enforces this too)
+  if (!hasRoom || status === 403)
+    return (
+      <div className="empty">
+        <h3>Rent a room to use the Room Designer</h3>
+        <p>
+          You can arrange furniture and appliances once a room is assigned to you. Browse the available rooms and
+          reserve one, and the designer unlocks as soon as the staff approve it.
+        </p>
+        <button className="btn brass" onClick={() => navigate("/tenant/rooms")}>
+          Find a room
+        </button>
+      </div>
+    );
   if (loading && !data)
     return (
       <div className="empty">
@@ -261,12 +338,14 @@ export function RoomDesigner() {
         </button>
       </div>
     );
-  return <Designer initial={sanitize(data)} />;
+  // the server decides the room size from the type of room the tenant rented
+  const room = data.room;
+  return <Designer room={room} initial={sanitize({ ...(data.layout || {}), cols: room.cols, rows: room.rows })} />;
 }
 
 /* ---------------- the editor ---------------- */
 
-function Designer({ initial }) {
+function Designer({ initial, room }) {
   const { user } = useAuth();
   const toast = useToast();
   const [{ present: layout, past, future }, dispatch] = useReducer(reducer, initial, (l) => ({
@@ -393,16 +472,6 @@ function Designer({ initial }) {
 
   const setFloor = (id) => edit((l) => (l.floor === id ? l : { ...l, floor: id }));
 
-  const setSize = (value) => {
-    const [c, r] = value.split("x").map(Number);
-    edit((l) => ({
-      ...l,
-      cols: c,
-      rows: r,
-      items: l.items.map((i) => ({ ...i, ...clampPos(i, c, r) })),
-    }));
-  };
-
   const save = async () => {
     setSaving(true);
     try {
@@ -486,9 +555,12 @@ function Designer({ initial }) {
     <>
       <div className="pageHead">
         <div>
-          <span className="eyebrow">{user.room ? `Room ${user.room}` : "My room"}</span>
+          <span className="eyebrow">{`Room ${room.id}${room.type ? ` · ${room.type}` : ""}`}</span>
           <h1>Room designer</h1>
-          <p>Drag furniture and appliances onto the grid to plan how your room will be set up.</p>
+          <p>
+            Your {room.type ? `${room.type.toLowerCase()} ` : ""}room is {room.cols / 2} × {room.rows / 2} m. The
+            designer is sized to match it, so drag furniture and appliances onto the grid to plan how it will be set up.
+          </p>
         </div>
         <div className="rd-head-actions">
           {dirty ? <span className="rd-unsaved">Unsaved changes</span> : null}
@@ -559,16 +631,11 @@ function Designer({ initial }) {
               <span className="rd-floor-name">{floor.label}</span>
             </div>
             <div className="rd-ctl">
-              <label className="rd-ctl-label" htmlFor="rd-size">
-                Room size
-              </label>
-              <select id="rd-size" className="rd-select" value={`${cols}x${rows}`} onChange={(e) => setSize(e.target.value)}>
-                {ROOM_SIZES.map((s) => (
-                  <option key={s.label} value={`${s.cols}x${s.rows}`}>
-                    {s.label} · {s.cols / 2} × {s.rows / 2} m
-                  </option>
-                ))}
-              </select>
+              <span className="rd-ctl-label">Room size</span>
+              <span className="rd-floor-name">
+                {room.type ? `${room.type} · ` : ""}
+                {cols / 2} × {rows / 2} m (fixed)
+              </span>
             </div>
             <label className="rd-check">
               <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />

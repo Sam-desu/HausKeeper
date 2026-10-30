@@ -43,6 +43,29 @@ export default function ChatBot({ mode = 'tenant' }) {
     api.get('/chat/config').then((c) => setAiEnabled(!!c.enabled)).catch(() => setAiEnabled(false));
   }, []);
 
+  // bring back this person's saved conversation with the assistant (each tenant and staff member has their own)
+  useEffect(() => {
+    if (aiEnabled !== true) return;
+    let cancelled = false;
+    api.get('/chat/history')
+      .then((d) => {
+        if (cancelled || !d.messages?.length) return;
+        setMessages((cur) => (cur.length > 1 ? cur : [cur[0], ...d.messages.map((m) => ({ role: m.role, text: m.text }))]));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [aiEnabled]);
+
+  const clearChat = async () => {
+    if (busy) return;
+    try {
+      await api.del('/chat/history');
+      setMessages([{ role: 'assistant', text: cfg.greeting }]);
+    } catch (err) {
+      setMessages((m) => [...m, { role: 'error', text: err.message }]);
+    }
+  };
+
   const loadUnread = useCallback(() => {
     api.get('/support/unread').then((d) => setUnread(d.unread || 0)).catch(() => {});
   }, []);
@@ -127,7 +150,12 @@ export default function ChatBot({ mode = 'tenant' }) {
                 {busy && <div className="chat-msg assistant">…</div>}
                 <div ref={end} />
               </div>
-              <div className="chat-note">{cfg.note}</div>
+              <div className="chat-note">
+                {cfg.note}
+                {messages.length > 1 ? (
+                  <> <button type="button" className="linklike" style={{ fontSize: 11 }} onClick={clearChat}>Clear chat</button></>
+                ) : null}
+              </div>
               <form className="chat-form" onSubmit={(e) => { e.preventDefault(); send(input); }}>
                 <input value={input} onChange={(e) => setInput(e.target.value)} maxLength={500} placeholder="Type your question…" />
                 <button className="btn small" disabled={busy || !input.trim()}>Send</button>

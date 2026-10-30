@@ -8,6 +8,7 @@ import AppShell from './layouts/AppShell.jsx';
 import { TENANT_NAV, ADMIN_NAV } from './nav.js';
 import { HomeScreen, LoginScreen, RegisterScreen } from './components/Auth.jsx';
 import { RoomDesigner } from './components/RoomDesigner.jsx';
+import { AdminRoomLayouts } from './components/AdminRoomLayouts.jsx';
 import AdminMap from './components/canvas.jsx';
 import { TenantSupport, StaffSupport } from './components/SupportChat.jsx';
 import {
@@ -64,6 +65,7 @@ export default function App() {
                 <Route path="reservations" element={<RequirePerm perm="tenants"><Reservations /></RequirePerm>} />
                 <Route path="move-ins" element={<RequirePerm perm="tenants"><MoveInReviews /></RequirePerm>} />
                 <Route path="rooms" element={<RequirePerm perm="rooms"><Rooms /></RequirePerm>} />
+                <Route path="room-layouts" element={<RequirePerm perm="rooms"><AdminRoomLayouts /></RequirePerm>} />
                 <Route path="billing" element={<RequirePerm perm="billing"><AdminBilling /></RequirePerm>} />
                 <Route path="maintenance" element={<RequirePerm perm="maintenance"><AdminMaintenance /></RequirePerm>} />
                 <Route path="reports" element={<RequirePerm perm="billing"><Reports /></RequirePerm>} />

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Navigate,
   useLocation,
@@ -10,6 +10,8 @@ import { StatusPill } from "./Common.jsx";
 import { useAuth, portalHome } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import { useApi } from "../useApi.js";
+import { api } from "../api.js";
+import Captcha from "./Captcha.jsx";
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ export function HomeScreen() {
     <div className="home">
       <div className="home-nav">
         <div className="brand" onClick={goHome}>
-          <div className="mark">🗝</div>
+          <div className="mark">①</div>
           <div>
             <div className="brand-name">HausKeeper</div>
           </div>
@@ -73,19 +75,19 @@ export function HomeScreen() {
         </div>
         <div className="hero-visual">
           <div className="tilt-card tilt-card-1">
-            <div className="ring">🗝</div>
+            <div className="ring">①</div>
             <div className="room-label">Room</div>
             <div className="room-num">101</div>
             <span className="pill ok">Available</span>
           </div>
           <div className="tilt-card tilt-card-2">
-            <div className="ring">🗝</div>
+            <div className="ring">①</div>
             <div className="room-label">Room</div>
             <div className="room-num">104</div>
             <span className="pill warn">1 spot left</span>
           </div>
           <div className="tilt-card tilt-card-3">
-            <div className="ring">🗝</div>
+            <div className="ring">①</div>
             <div className="room-label">Room</div>
             <div className="room-num">207</div>
             <span className="pill bad">Occupied</span>
@@ -189,6 +191,9 @@ export function LoginScreen() {
   const [pass, setPass] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [captcha, setCaptcha] = useState(null); // the reCAPTCHA token once the box is ticked
+  const [captchaOn, setCaptchaOn] = useState(false);
+  const captchaRef = useRef(null);
 
   // already signed in (or just signed in) → go where they were headed, or to their dashboard
   if (role) {
@@ -203,6 +208,7 @@ export function LoginScreen() {
   const setTab = (t) => {
     setParams({ role: t }, { replace: true });
     setError('');
+    captchaRef.current?.reset();
   };
 
   const submit = async () => {
@@ -210,13 +216,18 @@ export function LoginScreen() {
       setError(tab === 'tenant' ? 'Enter both email and password.' : 'Enter both username and password.');
       return;
     }
+    if (captchaOn && !captcha) {
+      setError('Please tick "I\'m not a robot".');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      const user = await login(tab === 'admin' ? 'staff' : 'tenant', idVal, pass);
+      const user = await login(tab === 'admin' ? 'staff' : 'tenant', idVal, pass, captcha);
       toast(tab === 'tenant' ? `Welcome back, ${user.name.split(' ')[0]}` : `Signed in as ${user.name}`);
     } catch (err) {
       setError(err.message);
+      captchaRef.current?.reset(); // each captcha tick works only once
     } finally {
       setBusy(false);
     }
@@ -257,6 +268,8 @@ export function LoginScreen() {
             />
           </div>
 
+          <Captcha ref={captchaRef} onChange={setCaptcha} onConfig={setCaptchaOn} />
+
           {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
 
           <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={submit} disabled={busy}>
@@ -280,24 +293,60 @@ export function RegisterScreen() {
   const [f, setF] = useState({ name: '', email: '', phone: '', pass: '', pass2: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState('form'); // 'form' → 'code'
+  const [otp, setOtp] = useState('');
+  const [cooldown, setCooldown] = useState(0); // seconds until a new code may be requested
+  const [mailNote, setMailNote] = useState('');
+  const [captcha, setCaptcha] = useState(null); // reCAPTCHA token for the "send code" step
+  const [captchaOn, setCaptchaOn] = useState(false);
+  const captchaRef = useRef(null);
   const set = (key) => (e) => setF((s) => ({ ...s, [key]: e.target.value }));
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   // signed in (including right after registering) → straight to the room finder
   if (role) return <Navigate to={role === 'staff' ? '/admin/dashboard' : '/tenant/rooms'} replace />;
 
-  const submit = async () => {
-    const name = f.name.trim();
-    const email = f.email.trim().toLowerCase();
+  const details = () => ({ name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone.trim(), pass: f.pass });
+
+  // step 1: check the form, then email a 6-digit code
+  const sendCode = async () => {
+    const { name, email } = details();
     if (!name || !email || !f.pass) return setError('Name, email, and password are required.');
     if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Enter a valid email address.');
     if (f.pass.length < 4) return setError('Password must be at least 4 characters.');
     if (f.pass !== f.pass2) return setError('Passwords do not match.');
+    if (step === 'form' && captchaOn && !captcha) return setError('Please tick "I\'m not a robot".');
 
     setBusy(true);
     setError('');
     try {
-      await register({ name, email, phone: f.phone.trim(), pass: f.pass });
-      toast(`Account created — welcome, ${name.split(' ')[0]}. Pick a room to get started.`);
+      const res = await api.post('/auth/register/otp', { ...details(), captcha: step === 'form' ? captcha : null });
+      setCaptcha(null); // a captcha tick works only once
+      setMailNote(res.emailed ? '' : 'Email is not set up on the server yet, so the code was printed in the server console.');
+      setOtp('');
+      setStep('code');
+      setCooldown(60);
+    } catch (err) {
+      setError(err.message);
+      captchaRef.current?.reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // step 2: check the code and create the account
+  const verify = async () => {
+    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit code from your email.');
+    setBusy(true);
+    setError('');
+    try {
+      await register({ ...details(), otp });
+      toast(`Account created — welcome, ${f.name.trim().split(' ')[0]}. Pick a room to get started.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -314,6 +363,40 @@ export function RegisterScreen() {
           <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 10.5, margin: '-2px 0 6px' }}>boardinghouse management system</p>
           <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 12, margin: '6px 0 20px' }}>create a tenant account — admin accounts are issued by property staff</p>
 
+          {step === 'code' ? (
+            <>
+              <p style={{ fontSize: 13, margin: '0 0 14px' }}>
+                We sent a 6-digit code to <strong>{f.email.trim().toLowerCase()}</strong>. It expires in 10 minutes.
+              </p>
+              {mailNote ? <div className="pill warn" style={{ marginBottom: 12 }}>{mailNote}</div> : null}
+              <div className="field">
+                <label>Verification code</label>
+                <input
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') verify(); }}
+                />
+              </div>
+
+              {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
+
+              <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={verify} disabled={busy}>
+                {busy ? 'Checking…' : 'Verify & create account'}
+              </button>
+              <p className="switch-line">
+                <button className="linklike" style={{ fontSize: 11.5 }} onClick={sendCode} disabled={busy || cooldown > 0}>
+                  {cooldown > 0 ? `resend code in ${cooldown}s` : 'resend code'}
+                </button>
+                {' · '}
+                <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => { setStep('form'); setError(''); }}>change details</button>
+              </p>
+            </>
+          ) : (
+          <>
           <div className="field"><label>Full name</label><input value={f.name} onChange={set('name')} placeholder="Juan Dela Cruz" /></div>
           <div className="field"><label>Email</label><input value={f.email} onChange={set('email')} placeholder="juan.delacruz@gmail.com" /></div>
           <div className="field"><label>Phone</label><input value={f.phone} onChange={set('phone')} placeholder="0917 000 0000" /></div>
@@ -326,17 +409,21 @@ export function RegisterScreen() {
                 value={f.pass2}
                 onChange={set('pass2')}
                 placeholder="••••••••"
-                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') sendCode(); }}
               />
             </div>
           </div>
 
+          <Captcha ref={captchaRef} onChange={setCaptcha} onConfig={setCaptchaOn} />
+
           {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
 
-          <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={submit} disabled={busy}>
-            {busy ? 'Creating account…' : 'Create account'}
+          <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={sendCode} disabled={busy}>
+            {busy ? 'Sending code…' : 'Send verification code'}
           </button>
           <p className="switch-line">already have an account? <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => navigate('/login')}>sign in</button></p>
+          </>
+          )}
         </div>
       </div>
     </div>

@@ -29,6 +29,7 @@ export const ADMIN_NAV = [
       { to: '/admin/reservations', label: 'Reservations', tag: 'RS', perm: 'tenants' },
       { to: '/admin/move-ins', label: 'Move-in forms', tag: 'MI', perm: 'tenants' },
       { to: '/admin/rooms', label: 'Rooms', tag: 'RM', perm: 'rooms' },
+      { to: '/admin/room-layouts', label: 'Room layouts', tag: 'RD', perm: 'rooms' },
       { to: '/admin/billing', label: 'Billing & payments', tag: '₱', perm: 'billing' },
       { to: '/admin/maintenance', label: 'Maintenance', tag: 'FX', perm: 'maintenance' },
       { to: '/admin/support', label: 'Support inbox', tag: 'SP' },
