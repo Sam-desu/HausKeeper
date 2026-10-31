@@ -769,7 +769,11 @@ function MoveInForm({ existing, onSaved }) {
     let phone, emergencyPhone;
     try {
       phone = checkPhone(f.phone, "Phone");
-      emergencyPhone = checkPhone(f.emergencyPhone, "Emergency contact phone", true);
+      emergencyPhone = checkPhone(
+        f.emergencyPhone,
+        "Emergency contact phone",
+        true,
+      );
     } catch (err) {
       return toast(err.message);
     }
@@ -889,7 +893,9 @@ function MoveInForm({ existing, onSaved }) {
           <div className="field">
             <label>ID number</label>
             <input
-              placeholder={GOV_ID_TYPES[f.govIdType]?.hint || "Pick an ID type first"}
+              placeholder={
+                GOV_ID_TYPES[f.govIdType]?.hint || "Pick an ID type first"
+              }
               value={f.govIdNumber}
               maxLength={30}
               onChange={set("govIdNumber")}
@@ -976,7 +982,9 @@ export function MoveIn() {
     return <Loading />;
   if (error && !saved) return <LoadError error={error} onRetry={reload} />;
   if (reservations.error)
-    return <LoadError error={reservations.error} onRetry={reservations.reload} />;
+    return (
+      <LoadError error={reservations.error} onRetry={reservations.reload} />
+    );
 
   // the form only opens once the tenant has a room, or a pending/approved reservation for one
   const hasRoom =
@@ -996,10 +1004,13 @@ export function MoveIn() {
         <div className="card card-pad" style={{ maxWidth: 640 }}>
           <h3>Reserve a room first</h3>
           <p style={{ color: "var(--slate)" }}>
-            The move-in form opens once you have rented or reserved a room.
-            Pick a room, then come back to finish your paperwork.
+            The move-in form opens once you have rented or reserved a room. Pick
+            a room, then come back to finish your paperwork.
           </p>
-          <button className="btn brass" onClick={() => navigate("/tenant/rooms")}>
+          <button
+            className="btn brass"
+            onClick={() => navigate("/tenant/rooms")}
+          >
             Find a room
           </button>
         </div>
@@ -1252,7 +1263,7 @@ export function TenantBilling() {
     setPaying(null);
     reload();
   };
-  
+
   const payAll = async () => {
     setPayingAll(true);
     try {
@@ -1272,19 +1283,23 @@ export function TenantBilling() {
   return (
     <>
       <div className="pageHead">
-  <div>
-    <span className="eyebrow">Account</span>
-    <h1>Billing &amp; payments</h1>
-    <p>Review your invoices and payment history.</p>
-  </div>
-  {unpaid.length > 1 ? (
-    <button className="btn brass" onClick={payAll} disabled={payingAll || !!paying}>
-      {payingAll
-        ? "Opening…"
-        : `Pay all (${unpaid.length}) · ${peso(outstanding)}`}
-    </button>
-  ) : null}
-</div>
+        <div>
+          <span className="eyebrow">Account</span>
+          <h1>Billing &amp; payments</h1>
+          <p>Review your invoices and payment history.</p>
+        </div>
+        {unpaid.length > 1 ? (
+          <button
+            className="btn brass"
+            onClick={payAll}
+            disabled={payingAll || !!paying}
+          >
+            {payingAll
+              ? "Opening…"
+              : `Pay all (${unpaid.length}) · ${peso(outstanding)}`}
+          </button>
+        ) : null}
+      </div>
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
         <div className="card kpi">
           <span className="eyebrow">Outstanding</span>
@@ -1329,7 +1344,14 @@ export function TenantBilling() {
                       </div>
                     ) : null}
                   </td>
-                  <td>{peso(i.amount)}</td>
+                  <td>
+                    {peso(i.amount)}
+                    {i.lateFee > 0 ? (
+                      <div style={{ fontSize: 12, color: "var(--rust)" }}>
+                        {peso(i.baseAmount)} + {peso(i.lateFee)} late fee
+                      </div>
+                    ) : null}
+                  </td>
                   <td>{i.due}</td>
                   <td>
                     <StatusPill status={i.status} />
@@ -1582,10 +1604,7 @@ export function Profile() {
           </div>
           <div className="field">
             <label>Emergency contact name</label>
-            <input
-              value={f.emergencyName}
-              onChange={set("emergencyName")}
-            />
+            <input value={f.emergencyName} onChange={set("emergencyName")} />
           </div>
           <div className="field">
             <label>Emergency contact number</label>

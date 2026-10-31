@@ -184,6 +184,7 @@ export function RoomFormBody({ room, locked, state, setState }) {
 
 export function GenerateInvoiceBody({ tenants, loading, state, setState }) {
   const set = (k) => (e) => setState((s) => ({ ...s, [k]: e.target.value }));
+  const chosen = tenants.find((t) => t.id === state.tenant);
   return (
     <>
       {field(
@@ -200,26 +201,19 @@ export function GenerateInvoiceBody({ tenants, loading, state, setState }) {
       <div className="field-row">
         {field(
           "Period",
-          <input
-            value={state.period}
-            onChange={set("period")}
-            placeholder="e.g. Nov 2026"
-          />,
+          <input value={state.period} onChange={set("period")} placeholder="e.g. Nov 2026" />,
         )}
-        {field(
-          "Due date",
-          <input type="date" value={state.due} onChange={set("due")} />,
-        )}
+        {field("Due date", <input type="date" value={state.due} onChange={set("due")} />)}
       </div>
       {field(
         "Amount",
         <input
-          type="number"
-          min="1"
-          value={state.amount}
-          onChange={set("amount")}
-          placeholder="e.g. 6500"
+          value={chosen ? peso(chosen.price) : ""}
+          placeholder="Choose a tenant first"
+          readOnly
+          disabled
         />,
+        chosen ? `Monthly price of room ${chosen.room}` : null,
       )}
     </>
   );
@@ -522,22 +516,18 @@ export function GenerateInvoiceModal({ onDone, registerSubmit }) {
   const toast = useToast();
   const billable = useApi("/invoices/billable");
   const [state, setState] = useState({
-    tenant: "",
-    period: new Date().toLocaleString("en-US", {
-      month: "short",
-      year: "numeric",
-    }),
-    due: "",
-    amount: "",
-  });
+  tenant: "",
+  period: new Date().toLocaleString("en-US", { month: "short", year: "numeric" }),
+  due: "",
+});
 
-  registerSubmit(async () => {
-    // the server validates tenant, period, due date and amount and sends clear messages
-    await api.post("/invoices", { ...state, amount: Number(state.amount) });
-    closeModal();
-    toast("Invoice generated");
-    onDone?.();
-  });
+registerSubmit(async () => {
+  const { tenant, period, due } = state;
+  await api.post("/invoices", { tenant, period, due });
+  closeModal();
+  toast("Invoice generated");
+  onDone?.();
+});
 
   return (
     <GenerateInvoiceBody
@@ -725,6 +715,7 @@ export function MarkPaidModal({ invoice, onDone, registerSubmit }) {
       <p style={{ fontSize: 13, marginBottom: 12 }}>
         <strong>{invoice.tenantName || "Tenant"}</strong> · {invoice.period} ·{" "}
         {peso(invoice.amount)}
+        {invoice.lateFee > 0 ? ` (incl. ${peso(invoice.lateFee)} late fee)` : ""}
       </p>
       {field(
         "How was it paid?",

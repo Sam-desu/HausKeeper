@@ -795,6 +795,22 @@ export function AdminBilling() {
     }
   };
 
+  const waiveFee = async (invoice) => {
+    if (
+      !window.confirm(
+        `Waive the ${peso(invoice.lateFee)} late fee on ${invoice.id}?`,
+      )
+    )
+      return;
+    try {
+      await api.post(`/invoices/${invoice.id}/waive-late-fee`);
+      toast("Late fee waived");
+      reloadAll();
+    } catch (err) {
+      toast(err.message);
+    }
+  };
+
   return (
     <>
       <div className="pageHead">
@@ -876,19 +892,36 @@ export function AdminBilling() {
                       <span className="tag-mini">Repair</span>
                     ) : null}
                   </td>
-                  <td>{peso(i.amount)}</td>
+                  <td>
+                    {peso(i.amount)}
+                    {i.lateFee > 0 ? (
+                      <div style={{ fontSize: 12, color: "var(--rust)" }}>
+                        {peso(i.baseAmount)} + {peso(i.lateFee)} late fee
+                      </div>
+                    ) : null}
+                  </td>
                   <td>{i.due}</td>
                   <td>
                     <StatusPill status={i.status} />
                   </td>
                   <td>
                     {i.status !== "paid" ? (
-                      <button
-                        className="btn small brass"
-                        onClick={() => markPaid(i)}
-                      >
-                        Mark paid
-                      </button>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className="btn small brass"
+                          onClick={() => markPaid(i)}
+                        >
+                          Mark paid
+                        </button>
+                        {i.lateFee > 0 ? (
+                          <button
+                            className="btn small secondary"
+                            onClick={() => waiveFee(i)}
+                          >
+                            Waive fee
+                          </button>
+                        ) : null}
+                      </div>
                     ) : (
                       <span style={{ color: "var(--slate)", fontSize: 12 }}>
                         Paid {i.paidOn}

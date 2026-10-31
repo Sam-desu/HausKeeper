@@ -4,6 +4,7 @@ import Invoice from "../models/Invoice.js";
 import Tenant from "../models/Tenant.js";
 import { nextSeq } from "../models/Counter.js";
 import { requireStaff, requireTenant } from "../middleware/auth.js";
+import Room from "../models/Room.js";
 import { HttpError } from "../services/housing.js";
 import {
   invoiceSummary,
@@ -77,28 +78,38 @@ router.get("/billable", requireStaff("billing"), async (_req, res) => {
   })
     .select("name room")
     .sort({ name: 1 });
-  res.json(tenants.map((t) => ({ id: t.id, name: t.name, room: t.room })));
+  const rooms = await Room.find({ _id: { $in: tenants.map((t) => t.room) } }).select("price");
+  const price = new Map(rooms.map((r) => [r._id, r.price]));
+  res.json(tenants.map((t) => ({ id: t.id, name: t.name, room: t.room, price: price.get(t.room) ?? 0 })));
 });
 
 // POST /api/invoices   body: { tenant, period, due, amount }
 router.post("/", requireStaff("billing"), async (req, res) => {
-  const { tenant: tenantId, period, due } = req.body;
-  const amount = Number(req.body.amount);
+  const { tenant: tenantId, period, due } = req.body; // amount is NOT taken from the client
 
   if (!mongoose.isValidObjectId(tenantId))
     throw new HttpError(400, "Choose a tenant");
   if (!period?.trim()) throw new HttpError(400, "Billing period is required");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(due || ""))
     throw new HttpError(400, "A due date is required");
-  if (!(amount > 0))
-    throw new HttpError(400, "Amount must be greater than zero");
 
   const tenant = await Tenant.findById(tenantId);
   if (!tenant) throw new HttpError(404, "Tenant not found");
   if (!tenant.room)
     throw new HttpError(400, "That tenant has no room assigned");
 
+  const room = await Room.findById(tenant.room).select("price");
+  if (!(room?.price > 0))
+    throw new HttpError(400, `Room ${tenant.room} has no price set`);
+  const amount = room.price;
+
+  // same tenant + same period label = already billed (also keeps the auto-generator from doubling up)
+  const label = period.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (await Invoice.exists({ tenant: tenant._id, kind: "rent", period: new RegExp(`^${label}$`, "i") }))
+    throw new HttpError(409, `${tenant.name} already has a rent invoice for ${period.trim()}`);
+
   const seq = await nextSeq("invoice");
+  // ...the rest of the handler stays exactly as it is
   const invoice = await Invoice.create({
     _id: "INV-" + (2200 + seq),
     tenant: tenant._id,

@@ -1,6 +1,8 @@
 import Invoice from '../models/Invoice.js';
 import { getSettings } from '../models/Settings.js';
 import { todayManila } from '../utils/dates.js';
+import { notifyTenant, peso } from './notify.js';
+import { lateFeeEmail } from '../utils/emailTemplates.js';
 
 /*
   Late fee model
@@ -48,7 +50,13 @@ export function lateFeeLabel(s) {
 // race with a payment: it only touches invoices that are still unpaid and not waived.
 async function bumpLateFee(id, fee) {
   const r = await Invoice.collection.updateOne(
-    { _id: id, status: 'unpaid', lateFeeWaived: { $ne: true } },
+    // `lateFee < fee` means only the run that really raises the fee matches (two runs at once can't both win)
+    {
+      _id: id,
+      status: 'unpaid',
+      lateFeeWaived: { $ne: true },
+      $or: [{ lateFee: null }, { lateFee: { $lt: fee } }],
+    },
     [
       { $set: { _cur: { $ifNull: ['$lateFee', 0] } } },
       { $set: { _base: { $subtract: ['$amount', '$_cur'] }, _fee: { $max: ['$_cur', fee] } } },
@@ -63,6 +71,34 @@ async function bumpLateFee(id, fee) {
     ]
   );
   return r.modifiedCount === 1;
+}
+
+// Tells the tenant (in-app bell, plus email/SMS if switched on) that a late fee was added or increased.
+// Sent once per increase: the first charge, then each full week. Uses the "overdue" notification type.
+async function announceLateFee(id, from, to, daysLate) {
+  const invoice = await Invoice.findById(id);
+  if (!invoice || invoice.status !== 'unpaid') return;
+  const added = `₱${peso(round2(to - from))}`;
+  const total = `₱${peso(invoice.amount)}`;
+  await notifyTenant(invoice.tenant, {
+    type: 'overdue',
+    title: from > 0 ? `Late fee increased on ${invoice.id}` : `Late fee added to ${invoice.id}`,
+    message:
+      from > 0
+        ? `The late fee on invoice ${invoice.id} (${invoice.period}) went up by ${added} to ₱${peso(to)}. New total: ${total}.`
+        : `A late fee of ${added} was added to invoice ${invoice.id} (${invoice.period}), which is ${daysLate} day${daysLate === 1 ? '' : 's'} overdue. New total: ${total}.`,
+    html: (t, settings) =>
+      lateFeeEmail({
+        propertyName: settings.propertyName,
+        name: t.name,
+        invoice,
+        feeText: added,
+        amountText: peso(invoice.amount),
+        daysLate,
+        buttonUrl: process.env.APP_URL ? `${process.env.APP_URL}/tenant/billing` : '',
+      }),
+    link: '/tenant/billing',
+  });
 }
 
 // Hourly job. dryRun lists what would be charged; ignoreEnabled lets staff preview before switching it on.
@@ -84,7 +120,10 @@ export async function applyLateFees({ dryRun = false, ignoreEnabled = false } = 
     const daysLate = dayNum(today) - dayNum(i.due);
     const fee = computeLateFee(round2(i.amount - cur), daysLate, p);
     if (fee <= cur) continue;
-    if (!dryRun && !(await bumpLateFee(i._id, fee))) continue;
+    if (!dryRun) {
+      if (!(await bumpLateFee(i._id, fee))) continue; // someone else already raised it
+      announceLateFee(i._id, cur, fee, daysLate).catch(() => {});
+    }
     result.added = round2(result.added + (fee - cur));
     result.invoices.push({
       id: i._id,

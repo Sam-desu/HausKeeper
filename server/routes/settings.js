@@ -122,4 +122,9 @@ router.put("/", requireStaff("settings"), async (req, res) => {
   res.json(withChannelStatus(s));
 });
 
+// POST /api/settings/late-fees/preview: what would be charged right now (ignores the on/off switch)
+router.post('/late-fees/preview', requireStaff('settings'), async (_req, res) => {
+  res.json(await applyLateFees({ dryRun: true, ignoreEnabled: true }));
+});
+
 export default router;

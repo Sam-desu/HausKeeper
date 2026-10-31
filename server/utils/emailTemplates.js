@@ -407,3 +407,36 @@ export function resetPasswordEmail({
     note: "Never share this code with anyone. Our staff will never ask for it.<br>If you didn’t ask for this, you can safely ignore this email. Your password will not change.",
   });
 }
+
+/* ---------- Late fee added / increased (red) ---------- */
+export function lateFeeEmail({
+  propertyName = "HausKeeper",
+  name,
+  invoice,
+  feeText,
+  amountText,
+  daysLate,
+  buttonUrl,
+}) {
+  return layout({
+    theme: "danger",
+    propertyName,
+    preheader: `A late fee of ${feeText} was added to invoice ${invoice.id}.`,
+    icon: "!",
+    title: "Late fee added",
+    subtitle: `Hi ${name || "there"}, a late fee was added to an overdue invoice.`,
+    amountLabel: "New total due",
+    amountText,
+    badge: `${daysLate} DAY${daysLate === 1 ? "" : "S"} OVERDUE`,
+    rows: [
+      row("Invoice", invoice.id),
+      row("Billing period", invoice.period),
+      row("Room", invoice.room),
+      row("Late fee added", feeText, "#b91c1c"),
+      row("Was due on", invoice.due),
+    ].join(""),
+    buttonUrl,
+    buttonText: "Pay now",
+    note: "Pay as soon as you can to stop further fees from adding up.<br>Think this is a mistake? Talk to the admin.",
+  });
+}

@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node --watch server/index.js",
+    "server": "node --watch-path=./server server/index.js",
     "start": "node server/index.js",
     "create-admin": "node server/scripts/createAdmin.js",
     "clean-orphans": "node server/scripts/cleanOrphans.js",

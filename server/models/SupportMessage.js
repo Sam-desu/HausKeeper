@@ -8,6 +8,9 @@ const supportMessageSchema = new mongoose.Schema(
     from: { type: String, enum: ['tenant', 'staff'], required: true },
     staff: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', default: null }, // who replied (staff messages only)
     staffName: { type: String, default: '' },
+    // Order of arrival, handed out by the database one at a time. The conversation is sorted by this,
+    // not by the clock, so messages can never swap places. Older messages have none and sort first.
+    seq: { type: Number, default: null },
     text: { type: String, required: true, trim: true, maxlength: 1000 },
     // "read by the other side": tenant messages are read once ANY staff opens the thread,
     // staff messages are read once the tenant opens their chat.

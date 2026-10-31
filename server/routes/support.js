@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import SupportMessage from '../models/SupportMessage.js';
+import { nextSeq } from '../models/Counter.js';
 import Notification from '../models/Notification.js';
 import Tenant from '../models/Tenant.js';
 import Staff from '../models/Staff.js';
@@ -54,6 +55,11 @@ async function notifyAllStaff(opts) {
   }
 }
 
+const ORDER = { seq: 1, createdAt: 1, _id: 1 };
+// the newest 300 messages of a conversation, oldest first
+const conversation = async (tenantId) =>
+  (await SupportMessage.find({ tenant: tenantId }).sort({ seq: -1, createdAt: -1, _id: -1 }).limit(300)).reverse();
+
 const preview = (t) => (t.length > 80 ? t.slice(0, 77) + '…' : t);
 
 // GET /api/support/unread → { unread }: drives the badge on the chat bubble.
@@ -76,7 +82,7 @@ router.get(
 // GET /api/support/mine → { messages } (also marks the staff replies as read)
 router.get('/mine', requireTenant, async (req, res) => {
   await SupportMessage.updateMany({ tenant: req.user.id, from: 'staff', read: false }, { read: true });
-  const messages = await SupportMessage.find({ tenant: req.user.id }).sort({ createdAt: 1 }).limit(300);
+  const messages = await conversation(req.user.id);
   res.json({ messages });
 });
 
@@ -90,7 +96,7 @@ router.post('/mine', requireTenant, async (req, res) => {
 
   // only ping staff when this starts a new unread run, so a burst of messages is one notification
   const alreadyPending = await SupportMessage.exists({ tenant: tenant._id, from: 'tenant', read: false });
-  const message = await SupportMessage.create({ tenant: tenant._id, from: 'tenant', text });
+  const message = await SupportMessage.create({ tenant: tenant._id, from: 'tenant', text, seq: await nextSeq('support') });
   if (!alreadyPending)
     notifyAllStaff({
       title: `New support message from ${tenant.name}`,
@@ -105,7 +111,7 @@ router.post('/mine', requireTenant, async (req, res) => {
 // GET /api/support/threads → conversations, newest activity first, with unread counts
 router.get('/threads', requireStaff(), async (_req, res) => {
   const rows = await SupportMessage.aggregate([
-    { $sort: { createdAt: 1 } },
+    { $sort: ORDER },
     {
       $group: {
         _id: '$tenant',
@@ -142,7 +148,7 @@ router.get('/threads/:tenantId', requireStaff(), async (req, res) => {
   const tenant = await Tenant.findById(req.params.tenantId).select('name room status');
   if (!tenant) throw new HttpError(404, 'Tenant not found');
   await SupportMessage.updateMany({ tenant: tenant._id, from: 'tenant', read: false }, { read: true });
-  const messages = await SupportMessage.find({ tenant: tenant._id }).sort({ createdAt: 1 }).limit(300);
+  const messages = await conversation(tenant._id);
   res.json({
     tenant: { id: tenant.id, name: tenant.name, room: tenant.room, status: tenant.status },
     messages,
@@ -168,6 +174,7 @@ router.post('/threads/:tenantId', requireStaff(), async (req, res) => {
     staff: staff._id,
     staffName: staff.name,
     text,
+    seq: await nextSeq('support'),
   });
   if (!alreadyPending)
     notifyTenant(tenant._id, {

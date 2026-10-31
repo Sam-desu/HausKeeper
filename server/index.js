@@ -146,6 +146,8 @@ try {
 console.log('✅ MongoDB connected');
 
 const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}${isProd ? ' (production)' : ''}`));
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
 
 const expiryTimer = setInterval(() => expireReservations().catch(console.error), 60_000);
 // overdue notices: once at start-up, then every hour (each invoice is only ever notified once)
