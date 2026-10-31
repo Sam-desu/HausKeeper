@@ -35,6 +35,9 @@ const STATUS_STYLE = {
   maintenance: { fill: 'rgba(125, 139, 128, 0.30)', hoverFill: 'rgba(125, 139, 128, 0.44)', stroke: '#6b786e', dot: '#7d8b80', label: 'Maintenance' },
 };
 
+// Hallways are neutral: they aren't rentable, so they carry no status colour
+const HALL_STYLE = { fill: 'rgba(120, 132, 124, 0.16)', hoverFill: 'rgba(120, 132, 124, 0.28)', stroke: '#7d8b80' };
+
 const snap = (v, max) => Math.min(max, Math.max(0, Math.round(v / GRID) * GRID));
 
 // Centre of a polygon's bounding box, used to place the room label
@@ -196,6 +199,7 @@ export default function AdminMap() {
     <MapEditor
       floors={map.data.floors}
       mapped={map.data.rooms}
+      hallways={map.data.hallways || []}
       allRooms={all.data}
       canEdit={canEdit}
       onChanged={() => {
@@ -208,15 +212,17 @@ export default function AdminMap() {
 
 /* ---------------- the editor ---------------- */
 
-function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
+function MapEditor({ floors, mapped, hallways, allRooms, canEdit, onChanged }) {
   const toast = useToast();
   const wrapRef = useRef(null);
   const [width, setWidth] = useState(W);
   const [floor, setFloor] = useState(floors[0]);
   const [selectedId, setSelectedId] = useState(null);
-  const [hoverRoom, setHoverRoom] = useState(null); // room under the pointer
+  const [selectedHallId, setSelectedHallId] = useState(null);
+  const [hallName, setHallName] = useState('');
+  const [hoverRoom, setHoverRoom] = useState(null); // room or hallway under the pointer
   const [pickId, setPickId] = useState('');
-  const [drawing, setDrawing] = useState(null); // { roomId, points: [x1, y1, ...] }
+  const [drawing, setDrawing] = useState(null); // { roomId, points } for a room, { hallway: true, hallId, name, points } for a hallway
   const [hover, setHover] = useState(null); // snapped pointer position while drawing
   const [saving, setSaving] = useState(false);
 
@@ -244,6 +250,9 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
   }, [drawing]);
 
   const floorRooms = mapped.filter((r) => r.floor === floor);
+  const floorHalls = hallways.filter((h) => h.floor === floor);
+  const selectedHall = selectedHallId ? hallways.find((h) => h.id === selectedHallId) : null;
+  const drawLabel = drawing ? (drawing.hallway ? drawing.name || 'New hallway' : drawing.roomId) : '';
   const unmapped = (allRooms || []).filter((r) => r.floor === floor && !r.plan?.length);
   const selected = selectedId ? (allRooms || []).find((r) => r.id === selectedId) ?? mapped.find((r) => r.id === selectedId) : null;
   const pickValue = unmapped.some((r) => r.id === pickId) ? pickId : unmapped[0]?.id || '';
@@ -275,8 +284,27 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
 
   /* ----- drawing ----- */
 
+  const selectRoom = (id) => {
+    setSelectedHallId(null);
+    setSelectedId(id);
+  };
+
+  const selectHall = (id) => {
+    setSelectedId(null);
+    setSelectedHallId(id);
+    setHallName(hallways.find((h) => h.id === id)?.name || '');
+  };
+
+  const startHallway = (existing) => {
+    setSelectedId(null);
+    setSelectedHallId(null);
+    setHover(null);
+    setDrawing({ hallway: true, hallId: existing?.id || null, name: existing?.name || 'Hallway', points: [] });
+  };
+
   const startDrawing = (roomId) => {
     setSelectedId(null);
+    setSelectedHallId(null);
     setHover(null);
     setDrawing({ roomId, points: [] });
   };
@@ -287,12 +315,22 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
   };
 
   const finish = async () => {
-    if (!drawing || drawing.points.length < 6) return toast('A room needs at least 3 corners');
+    if (!drawing || drawing.points.length < 6) return toast(`A ${drawing?.hallway ? 'hallway' : 'room'} needs at least 3 corners`);
     setSaving(true);
     try {
-      await api.put(`/map/${encodeURIComponent(drawing.roomId)}`, { points: drawing.points });
-      toast(`Outline saved for ${drawing.roomId}`);
-      setSelectedId(drawing.roomId);
+      if (drawing.hallway) {
+        const body = { points: drawing.points, name: drawing.name };
+        const saved = drawing.hallId
+          ? await api.put(`/map/hallways/${drawing.hallId}`, body)
+          : await api.post('/map/hallways', { ...body, floor });
+        toast(`Hallway saved: ${saved.name}`);
+        setSelectedHallId(saved.id);
+        setHallName(saved.name);
+      } else {
+        await api.put(`/map/${encodeURIComponent(drawing.roomId)}`, { points: drawing.points });
+        toast(`Outline saved for ${drawing.roomId}`);
+        setSelectedId(drawing.roomId);
+      }
       setDrawing(null);
       setHover(null);
       onChanged();
@@ -310,7 +348,10 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
 
   const onStageClick = (e) => {
     if (!drawing) {
-      if (e.target === e.target.getStage() || e.target.attrs.name === 'plan-bg') setSelectedId(null); // clicked empty space
+      if (e.target === e.target.getStage() || e.target.attrs.name === 'plan-bg') {
+        setSelectedId(null); // clicked empty space
+        setSelectedHallId(null);
+      }
       return;
     }
     const p = pointerPos(e);
@@ -335,6 +376,35 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
       await api.del(`/map/${encodeURIComponent(room.id)}`);
       toast(`${room.id} removed from the map`);
       setSelectedId(null);
+      onChanged();
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveHallName = async () => {
+    if (!selectedHall || hallName.trim() === selectedHall.name) return;
+    setSaving(true);
+    try {
+      await api.put(`/map/hallways/${selectedHall.id}`, { name: hallName });
+      toast('Hallway renamed');
+      onChanged();
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeHallway = async (h) => {
+    if (!window.confirm(`Remove "${h.name}" from the map?`)) return;
+    setSaving(true);
+    try {
+      await api.del(`/map/hallways/${h.id}`);
+      toast('Hallway removed');
+      setSelectedHallId(null);
       onChanged();
     } catch (err) {
       toast(err.message);
@@ -374,6 +444,7 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
               onClick={() => {
                 setFloor(f);
                 setSelectedId(null);
+                setSelectedHallId(null);
               }}
             >
               Floor {f}
@@ -401,9 +472,10 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
                 Floor {floor}
                 <span>
                   {floorRooms.length} room{floorRooms.length === 1 ? '' : 's'} mapped
+                  {floorHalls.length ? ` · ${floorHalls.length} hallway${floorHalls.length === 1 ? '' : 's'}` : ''}
                 </span>
               </div>
-              {drawing ? <span className="fp-mode">Drawing {drawing.roomId} · Esc to cancel</span> : null}
+              {drawing ? <span className="fp-mode">Drawing {drawLabel} · Esc to cancel</span> : null}
             </div>
 
             <div className="fp-stage">
@@ -425,6 +497,51 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
                   <Layer listening={false}>{gridLines}</Layer>
 
                   <Layer>
+                    {floorHalls.map((h) => {
+                      const [cx, cy] = center(h.plan);
+                      const isSel = h.id === selectedHallId;
+                      const isHover = h.id === hoverRoom && !drawing;
+                      const redrawing = drawing?.hallway && drawing.hallId === h.id;
+                      return (
+                        <React.Fragment key={h.id}>
+                          <Line
+                            points={h.plan}
+                            closed
+                            lineJoin="round"
+                            fill={isHover || isSel ? HALL_STYLE.hoverFill : HALL_STYLE.fill}
+                            stroke={isSel ? COLORS.brass : HALL_STYLE.stroke}
+                            strokeWidth={isSel ? 4 : isHover ? 3 : 2}
+                            dash={isSel ? undefined : [8, 5]}
+                            strokeScaleEnabled={false}
+                            opacity={redrawing ? 0.25 : 1}
+                            listening={!drawing}
+                            onClick={() => selectHall(h.id)}
+                            onTap={() => selectHall(h.id)}
+                            onMouseEnter={(e) => {
+                              setHoverRoom(h.id);
+                              e.target.getStage().container().style.cursor = 'pointer';
+                            }}
+                            onMouseLeave={(e) => {
+                              setHoverRoom(null);
+                              e.target.getStage().container().style.cursor = drawing ? 'crosshair' : 'default';
+                            }}
+                          />
+                          <Text
+                            text={h.name}
+                            x={cx - 60}
+                            y={cy - 7}
+                            width={120}
+                            align="center"
+                            fontSize={13}
+                            fontStyle="italic"
+                            fontFamily="'Public Sans', Arial, sans-serif"
+                            fill="#46564d"
+                            listening={false}
+                          />
+                        </React.Fragment>
+                      );
+                    })}
+
                     {floorRooms.map((r) => {
                       const [cx, cy] = center(r.plan);
                       const st = STATUS_STYLE[r.status] || STATUS_STYLE.available;
@@ -447,8 +564,8 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
                             shadowForStrokeEnabled={false}
                             opacity={redrawing ? 0.25 : 1}
                             listening={!drawing}
-                            onClick={() => setSelectedId(r.id)}
-                            onTap={() => setSelectedId(r.id)}
+                            onClick={() => selectRoom(r.id)}
+                            onTap={() => selectRoom(r.id)}
                             onMouseEnter={(e) => {
                               setHoverRoom(r.id);
                               e.target.getStage().container().style.cursor = 'pointer';
@@ -555,7 +672,7 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
               </div>
             </div>
 
-            {!floorRooms.length && !drawing ? (
+            {!floorRooms.length && !floorHalls.length && !drawing ? (
               <p className="fp-note">
                 No rooms are drawn on floor {floor} yet.
                 {canEdit ? ' Use the panel on the right to add one.' : ''}
@@ -571,8 +688,8 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
               <>
                 <div className="fp-plate">
                   <div>
-                    <small>Drawing outline</small>
-                    <h3>{drawing.roomId}</h3>
+                    <small>{drawing.hallway ? 'Drawing hallway' : 'Drawing outline'}</small>
+                    <h3>{drawLabel}</h3>
                   </div>
                   <div className="fp-plate-mark">✎</div>
                 </div>
@@ -601,9 +718,24 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
                     </li>
                   </ol>
 
+                  {drawing.hallway ? (
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="fp-field-label" htmlFor="fp-hall-draw-name">
+                        Hallway name
+                      </label>
+                      <input
+                        id="fp-hall-draw-name"
+                        className="fp-select"
+                        value={drawing.name}
+                        maxLength={40}
+                        onChange={(e) => setDrawing((d) => ({ ...d, name: e.target.value }))}
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="fp-actions" style={{ marginTop: 0 }}>
                     <button className="btn brass small" onClick={finish} disabled={nPts < 3 || saving}>
-                      {saving ? 'Saving…' : 'Save outline'}
+                      {saving ? 'Saving…' : drawing.hallway ? 'Save hallway' : 'Save outline'}
                     </button>
                     <button className="btn secondary small" onClick={undoPoint} disabled={!nPts || saving}>
                       Undo point
@@ -612,6 +744,44 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
                       Cancel
                     </button>
                   </div>
+                </div>
+              </>
+            ) : selectedHall ? (
+              <>
+                <div className="fp-plate">
+                  <div>
+                    <small>Hallway · Floor {selectedHall.floor}</small>
+                    <h3>{selectedHall.name}</h3>
+                  </div>
+                  <div className="fp-plate-mark">⇄</div>
+                </div>
+                <div className="fp-panel-body">
+                  {canEdit ? (
+                    <>
+                      <label className="fp-field-label" htmlFor="fp-hall-name">
+                        Name
+                      </label>
+                      <input
+                        id="fp-hall-name"
+                        className="fp-select"
+                        value={hallName}
+                        maxLength={40}
+                        onChange={(e) => setHallName(e.target.value)}
+                        onBlur={saveHallName}
+                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                      />
+                      <div className="fp-actions">
+                        <button className="btn secondary small" onClick={() => startHallway(selectedHall)}>
+                          Redraw outline
+                        </button>
+                        <button className="btn danger small" onClick={() => removeHallway(selectedHall)} disabled={saving}>
+                          Remove hallway
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ margin: 0, color: 'var(--slate-dark)', fontSize: 'var(--t-sm)' }}>A shared walkway on this floor.</p>
+                  )}
                 </div>
               </>
             ) : selected ? (
@@ -666,7 +836,7 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
             ) : (
               <div className="fp-empty">
                 {cursorIcon}
-                Click a room on the plan to see its details.
+                Click a room or hallway on the plan to see its details.
               </div>
             )}
           </div>
@@ -698,6 +868,22 @@ function MapEditor({ floors, mapped, allRooms, canEdit, onChanged }) {
                     Every room on this floor is already on the map. To map another room, add it first on the Rooms page.
                   </p>
                 )}
+              </div>
+            </div>
+          ) : null}
+
+          {canEdit && !drawing ? (
+            <div className="card fp-panel">
+              <div className="fp-panel-body">
+                <span className="fp-panel-label">Add a hallway to floor {floor}</span>
+                <p style={{ color: 'var(--slate-dark)', fontSize: 'var(--t-sm)', margin: '0 0 4px' }}>
+                  Draw corridors, lobbies or stairwells so the plan shows how rooms connect.
+                </p>
+                <div className="fp-actions">
+                  <button className="btn brass small" onClick={() => startHallway(null)}>
+                    Draw a hallway
+                  </button>
+                </div>
               </div>
             </div>
           ) : null}

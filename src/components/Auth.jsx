@@ -6,7 +6,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { peso } from "../data.js";
-import { StatusPill } from "./Common.jsx";
+import { StatusPill, PhoneInput } from "./Common.jsx";
+import { normalizePhone } from "../utils/phone.js";
 import { useAuth, portalHome } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import { useApi } from "../useApi.js";
@@ -383,19 +384,13 @@ export function RegisterScreen() {
   const { role, register } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [f, setF] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    pass: "",
-    pass2: "",
-  });
-  const [error, setError] = useState("");
+  const [f, setF] = useState({ name: '', email: '', phone: '', pass: '', pass2: '' });
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState("form"); // 'form' → 'code'
-  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState('form'); // 'form' → 'code'
+  const [otp, setOtp] = useState('');
   const [cooldown, setCooldown] = useState(0); // seconds until a new code may be requested
-  const [mailNote, setMailNote] = useState("");
+  const [mailNote, setMailNote] = useState('');
   const [captcha, setCaptcha] = useState(null); // reCAPTCHA token for the "send code" step
   const [captchaOn, setCaptchaOn] = useState(false);
   const captchaRef = useRef(null);
@@ -408,49 +403,28 @@ export function RegisterScreen() {
   }, [cooldown]);
 
   // signed in (including right after registering) → straight to the room finder
-  if (role)
-    return (
-      <Navigate
-        to={role === "staff" ? "/admin/dashboard" : "/tenant/rooms"}
-        replace
-      />
-    );
+  if (role) return <Navigate to={role === 'staff' ? '/admin/dashboard' : '/tenant/rooms'} replace />;
 
-  const details = () => ({
-    name: f.name.trim(),
-    email: f.email.trim().toLowerCase(),
-    phone: f.phone.trim(),
-    pass: f.pass,
-  });
+  const details = () => ({ name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone.trim(), pass: f.pass });
 
   // step 1: check the form, then email a 6-digit code
   const sendCode = async () => {
     const { name, email } = details();
-    if (!name || !email || !f.pass)
-      return setError("Name, email, and password are required.");
-    if (!/^\S+@\S+\.\S+$/.test(email))
-      return setError("Enter a valid email address.");
-    if (f.pass.length < 4)
-      return setError("Password must be at least 4 characters.");
-    if (f.pass !== f.pass2) return setError("Passwords do not match.");
-    if (step === "form" && captchaOn && !captcha)
-      return setError('Please tick "I\'m not a robot".');
+    if (!name || !email || !f.pass) return setError('Name, email, and password are required.');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Enter a valid email address.');
+    if (f.phone.trim() && !normalizePhone(f.phone)) return setError('Enter a valid mobile number, e.g. 0917 123 4567.');
+    if (f.pass.length < 4) return setError('Password must be at least 4 characters.');
+    if (f.pass !== f.pass2) return setError('Passwords do not match.');
+    if (step === 'form' && captchaOn && !captcha) return setError('Please tick "I\'m not a robot".');
 
     setBusy(true);
-    setError("");
+    setError('');
     try {
-      const res = await api.post("/auth/register/otp", {
-        ...details(),
-        captcha: step === "form" ? captcha : null,
-      });
+      const res = await api.post('/auth/register/otp', { ...details(), captcha: step === 'form' ? captcha : null });
       setCaptcha(null); // a captcha tick works only once
-      setMailNote(
-        res.emailed
-          ? ""
-          : "Email is not set up on the server yet, so the code was printed in the server console.",
-      );
-      setOtp("");
-      setStep("code");
+      setMailNote(res.emailed ? '' : 'Email is not set up on the server yet, so the code was printed in the server console.');
+      setOtp('');
+      setStep('code');
       setCooldown(60);
     } catch (err) {
       setError(err.message);
@@ -462,15 +436,12 @@ export function RegisterScreen() {
 
   // step 2: check the code and create the account
   const verify = async () => {
-    if (!/^\d{6}$/.test(otp))
-      return setError("Enter the 6-digit code from your email.");
+    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit code from your email.');
     setBusy(true);
-    setError("");
+    setError('');
     try {
       await register({ ...details(), otp });
-      toast(
-        `Account created — welcome, ${f.name.trim().split(" ")[0]}. Pick a room to get started.`,
-      );
+      toast(`Account created — welcome, ${f.name.trim().split(' ')[0]}. Pick a room to get started.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -482,196 +453,78 @@ export function RegisterScreen() {
     <div className="authwrap">
       <div className="authcard">
         <div className="card-pad" style={{ paddingTop: 30 }}>
-          <button
-            className="linklike"
-            style={{ marginBottom: 14 }}
-            onClick={() => navigate("/")}
-          >
-            &larr; Back to home
-          </button>
+          <button className="linklike" style={{ marginBottom: 14 }} onClick={() => navigate('/')}>&larr; Back to home</button>
           <h1 style={{ fontSize: 20, marginBottom: 4 }}>HausKeeper</h1>
-          <p
-            style={{
-              color: "var(--slate)",
-              fontFamily: "var(--mono)",
-              fontSize: 10.5,
-              margin: "-2px 0 6px",
-            }}
-          >
-            boardinghouse management system
-          </p>
-          <p
-            style={{
-              color: "var(--slate)",
-              fontFamily: "var(--mono)",
-              fontSize: 12,
-              margin: "6px 0 20px",
-            }}
-          >
-            create a tenant account — admin accounts are issued by property
-            staff
-          </p>
+          <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 10.5, margin: '-2px 0 6px' }}>boardinghouse management system</p>
+          <p style={{ color: 'var(--slate)', fontFamily: 'var(--mono)', fontSize: 12, margin: '6px 0 20px' }}>create a tenant account — admin accounts are issued by property staff</p>
 
-          {step === "code" ? (
+          {step === 'code' ? (
             <>
-              <p style={{ fontSize: 13, margin: "0 0 14px" }}>
-                We sent a 6-digit code to{" "}
-                <strong>{f.email.trim().toLowerCase()}</strong>. It expires in
-                10 minutes.
+              <p style={{ fontSize: 13, margin: '0 0 14px' }}>
+                We sent a 6-digit code to <strong>{f.email.trim().toLowerCase()}</strong>. It expires in 10 minutes.
               </p>
-              {mailNote ? (
-                <div className="pill warn" style={{ marginBottom: 12 }}>
-                  {mailNote}
-                </div>
-              ) : null}
+              {mailNote ? <div className="pill warn" style={{ marginBottom: 12 }}>{mailNote}</div> : null}
               <div className="field">
                 <label>Verification code</label>
                 <input
                   value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="123456"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") verify();
-                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') verify(); }}
                 />
               </div>
 
-              {error ? (
-                <div className="pill bad" style={{ marginBottom: 14 }}>
-                  {error}
-                </div>
-              ) : null}
+              {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
 
-              <button
-                className="btn brass"
-                style={{
-                  width: "100%",
-                  justifyContent: "center",
-                  marginBottom: 8,
-                }}
-                onClick={verify}
-                disabled={busy}
-              >
-                {busy ? "Checking…" : "Verify & create account"}
+              <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={verify} disabled={busy}>
+                {busy ? 'Checking…' : 'Verify & create account'}
               </button>
               <p className="switch-line">
-                <button
-                  className="linklike"
-                  style={{ fontSize: 15.5 }}
-                  onClick={sendCode}
-                  disabled={busy || cooldown > 0}
-                >
-                  {cooldown > 0 ? `resend code in ${cooldown}s` : "resend code"}
+                <button className="linklike" style={{ fontSize: 11.5 }} onClick={sendCode} disabled={busy || cooldown > 0}>
+                  {cooldown > 0 ? `resend code in ${cooldown}s` : 'resend code'}
                 </button>
-                {" · "}
-                <button
-                  className="linklike"
-                  style={{ fontSize: 15.5 }}
-                  onClick={() => {
-                    setStep("form");
-                    setError("");
-                  }}
-                >
-                  change details
-                </button>
+                {' · '}
+                <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => { setStep('form'); setError(''); }}>change details</button>
               </p>
             </>
           ) : (
-            <>
-              <div className="field">
-                <label>Full name</label>
-                <input
-                  value={f.name}
-                  onChange={set("name")}
-                  placeholder="Juan Dela Cruz"
-                />
-              </div>
-              <div className="field">
-                <label>Email</label>
-                <input
-                  value={f.email}
-                  onChange={set("email")}
-                  placeholder="juan.delacruz@gmail.com"
-                />
-              </div>
-              <div className="field">
-                <label>Phone</label>
-                <input
-                  value={f.phone}
-                  onChange={set("phone")}
-                  placeholder="0917 000 0000"
-                />
-              </div>
-              <div className="field-row">
-                <div className="field">
-                  <label>Password</label>
-                  <input
-                    type="password"
-                    value={f.pass}
-                    onChange={set("pass")}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="field">
-                  <label>Confirm password</label>
-                  <input
-                    type="password"
-                    value={f.pass2}
-                    onChange={set("pass2")}
-                    placeholder="••••••••"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendCode();
-                    }}
-                  />
-                </div>
-              </div>
-
-              <Captcha
-                ref={captchaRef}
-                onChange={setCaptcha}
-                onConfig={setCaptchaOn}
+          <>
+          <div className="field"><label>Full name</label><input value={f.name} onChange={set('name')} placeholder="Juan Dela Cruz" /></div>
+          <div className="field"><label>Email</label><input value={f.email} onChange={set('email')} placeholder="juan.delacruz@gmail.com" /></div>
+          <div className="field"><label>Phone</label><PhoneInput value={f.phone} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></div>
+          <div className="field-row">
+            <div className="field"><label>Password</label><input type="password" value={f.pass} onChange={set('pass')} placeholder="••••••••" /></div>
+            <div className="field">
+              <label>Confirm password</label>
+              <input
+                type="password"
+                value={f.pass2}
+                onChange={set('pass2')}
+                placeholder="••••••••"
+                onKeyDown={(e) => { if (e.key === 'Enter') sendCode(); }}
               />
+            </div>
+          </div>
 
-              {error ? (
-                <div className="pill bad" style={{ marginBottom: 14 }}>
-                  {error}
-                </div>
-              ) : null}
+          <Captcha ref={captchaRef} onChange={setCaptcha} onConfig={setCaptchaOn} />
 
-              <button
-                className="btn brass"
-                style={{
-                  width: "100%",
-                  justifyContent: "center",
-                  marginBottom: 8,
-                }}
-                onClick={sendCode}
-                disabled={busy}
-              >
-                {busy ? "Sending code…" : "Send verification code"}
-              </button>
-              <p className="switch-line">
-                already have an account?{" "}
-                <button
-                  className="linklike"
-                  style={{ fontSize: 15.5 }}
-                  onClick={() => navigate("/login")}
-                >
-                  sign in
-                </button>
-              </p>
-            </>
+          {error ? <div className="pill bad" style={{ marginBottom: 14 }}>{error}</div> : null}
+
+          <button className="btn brass" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }} onClick={sendCode} disabled={busy}>
+            {busy ? 'Sending code…' : 'Send verification code'}
+          </button>
+          <p className="switch-line">already have an account? <button className="linklike" style={{ fontSize: 11.5 }} onClick={() => navigate('/login')}>sign in</button></p>
+          </>
           )}
         </div>
       </div>
     </div>
   );
 }
+
 
 export function ForgotPasswordScreen() {
   const { role } = useAuth();

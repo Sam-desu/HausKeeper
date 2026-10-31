@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { peso, METHOD_LABELS } from "../data.js";
-import { StatusPill } from "../components/Common.jsx";
+import { StatusPill, PhoneInput } from "../components/Common.jsx";
 import { NewTicketBody, HouseRulesModal } from "../components/Modals.jsx";
 import { useApi } from "../useApi.js";
+import { GOV_ID_TYPES, govIdError, splitGovId } from "../govIdRules.js";
+import { checkPhone, splitEmergency, joinEmergency } from "../utils/phone.js";
 import { api } from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
@@ -740,7 +742,8 @@ function MoveInForm({ existing, onSaved }) {
     dob: existing?.dob || "",
     email: existing?.email || user.email || "",
     phone: existing?.phone || user.phone || "",
-    govId: existing?.govId || "",
+    govIdType: splitGovId(existing?.govId).type,
+    govIdNumber: splitGovId(existing?.govId).number,
     emergencyName: existing?.emergencyName || "",
     emergencyRelationship: existing?.emergencyRelationship || "",
     emergencyPhone: existing?.emergencyPhone || "",
@@ -755,10 +758,21 @@ function MoveInForm({ existing, onSaved }) {
   const submit = async () => {
     if (!f.agreed)
       return toast("You need to agree to the house rules and lease terms");
+    const idProblem = govIdError(f.govIdType, f.govIdNumber);
+    if (idProblem) return toast(idProblem);
     if (!file && !existing?.hasId)
       return toast("Please upload a photo or scan of your ID");
     if (file && file.size > MAX_ID_BYTES)
       return toast("The ID file must be 5 MB or smaller");
+
+    // accepts 0917 123 4567, 09171234567, +63 917 123 4567 ... and sends the standard format
+    let phone, emergencyPhone;
+    try {
+      phone = checkPhone(f.phone, "Phone");
+      emergencyPhone = checkPhone(f.emergencyPhone, "Emergency contact phone", true);
+    } catch (err) {
+      return toast(err.message);
+    }
 
     const fd = new FormData();
     for (const k of [
@@ -766,13 +780,16 @@ function MoveInForm({ existing, onSaved }) {
       "dob",
       "email",
       "phone",
-      "govId",
+      "govIdType",
+      "govIdNumber",
       "emergencyName",
       "emergencyRelationship",
       "emergencyPhone",
     ]) {
       fd.append(k, f[k]);
     }
+    fd.set("phone", phone);
+    fd.set("emergencyPhone", emergencyPhone);
     fd.append("agreed", "true");
     if (file) fd.append("idFile", file);
 
@@ -851,21 +868,33 @@ function MoveInForm({ existing, onSaved }) {
           </div>
           <div className="field">
             <label>Phone</label>
-            <input
-              type="tel"
-              placeholder="0917 000 0000"
+            <PhoneInput
               value={f.phone}
-              onChange={set("phone")}
+              onChange={(v) => setF((s) => ({ ...s, phone: v }))}
             />
           </div>
         </div>
-        <div className="field">
-          <label>Government ID type &amp; number</label>
-          <input
-            placeholder="e.g. Philippine ID — 0000-0000-0000"
-            value={f.govId}
-            onChange={set("govId")}
-          />
+        <div className="field-row">
+          <div className="field">
+            <label>Government ID type</label>
+            <select value={f.govIdType} onChange={set("govIdType")}>
+              <option value="">Choose an ID…</option>
+              {Object.keys(GOV_ID_TYPES).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>ID number</label>
+            <input
+              placeholder={GOV_ID_TYPES[f.govIdType]?.hint || "Pick an ID type first"}
+              value={f.govIdNumber}
+              maxLength={30}
+              onChange={set("govIdNumber")}
+            />
+          </div>
         </div>
         <div className="field">
           <label>Upload ID (photo/scan)</label>
@@ -898,10 +927,9 @@ function MoveInForm({ existing, onSaved }) {
           </div>
           <div className="field">
             <label>Phone</label>
-            <input
-              type="tel"
+            <PhoneInput
               value={f.emergencyPhone}
-              onChange={set("emergencyPhone")}
+              onChange={(v) => setF((s) => ({ ...s, emergencyPhone: v }))}
             />
           </div>
         </div>
@@ -938,11 +966,45 @@ function MoveInForm({ existing, onSaved }) {
 }
 
 export function MoveIn() {
+  const { user } = useAuth();
   const { data, loading, error, reload } = useApi("/move-in/mine");
+  const reservations = useApi("/reservations/mine");
+  const navigate = useNavigate();
   const [saved, setSaved] = useState(null); // the server's copy after a successful submit
 
-  if (loading && !saved) return <Loading />;
+  if ((loading && !saved) || (reservations.loading && !reservations.data))
+    return <Loading />;
   if (error && !saved) return <LoadError error={error} onRetry={reload} />;
+  if (reservations.error)
+    return <LoadError error={reservations.error} onRetry={reservations.reload} />;
+
+  // the form only opens once the tenant has a room, or a pending/approved reservation for one
+  const hasRoom =
+    !!user.room ||
+    (reservations.data || []).some(
+      (r) => r.status === "pending" || r.status === "approved",
+    );
+  if (!hasRoom)
+    return (
+      <>
+        <div className="pageHead">
+          <div>
+            <span className="eyebrow">Housing</span>
+            <h1>Move-in registration</h1>
+          </div>
+        </div>
+        <div className="card card-pad" style={{ maxWidth: 640 }}>
+          <h3>Reserve a room first</h3>
+          <p style={{ color: "var(--slate)" }}>
+            The move-in form opens once you have rented or reserved a room.
+            Pick a room, then come back to finish your paperwork.
+          </p>
+          <button className="btn brass" onClick={() => navigate("/tenant/rooms")}>
+            Find a room
+          </button>
+        </div>
+      </>
+    );
 
   const form = saved ?? data; // null = nothing submitted yet
 
@@ -1443,11 +1505,13 @@ export function TenantMaintenance() {
 export function Profile() {
   const { user, refresh } = useAuth();
   const toast = useToast();
+  const em = splitEmergency(user.emergency); // saved as "Name · 0917 000 0000"
   const [f, setF] = useState({
     name: user.name,
     email: user.email,
     phone: user.phone || "",
-    emergency: user.emergency || "",
+    emergencyName: em.name,
+    emergencyPhone: em.phone,
   });
   const [pw, setPw] = useState({ current: "", next: "" });
   const [busy, setBusy] = useState(null); // 'profile' | 'password'
@@ -1457,7 +1521,14 @@ export function Profile() {
     if (!f.name.trim()) return toast("Your name can't be empty");
     setBusy("profile");
     try {
-      await api.put("/tenants/me", f);
+      const phone = checkPhone(f.phone, "Phone");
+      const emergency = joinEmergency(f.emergencyName, f.emergencyPhone);
+      await api.put("/tenants/me", {
+        name: f.name,
+        email: f.email,
+        phone,
+        emergency,
+      });
       await refresh();
       toast("Profile updated");
     } catch (err) {
@@ -1504,11 +1575,24 @@ export function Profile() {
           </div>
           <div className="field">
             <label>Phone</label>
-            <input value={f.phone} onChange={set("phone")} />
+            <PhoneInput
+              value={f.phone}
+              onChange={(v) => setF((s) => ({ ...s, phone: v }))}
+            />
           </div>
           <div className="field">
-            <label>Emergency contact</label>
-            <input value={f.emergency} onChange={set("emergency")} />
+            <label>Emergency contact name</label>
+            <input
+              value={f.emergencyName}
+              onChange={set("emergencyName")}
+            />
+          </div>
+          <div className="field">
+            <label>Emergency contact number</label>
+            <PhoneInput
+              value={f.emergencyPhone}
+              onChange={(v) => setF((s) => ({ ...s, emergencyPhone: v }))}
+            />
           </div>
           <button
             className="btn brass"

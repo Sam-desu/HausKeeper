@@ -5,6 +5,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import MoveIn from '../models/MoveIn.js';
 import Tenant from '../models/Tenant.js';
+import Reservation from '../models/Reservation.js';
+import { readGovId } from '../utils/govIdCheck.js';
+import { cleanPhone, normalizePhone } from '../utils/phone.js';
 import { requireStaff, requireTenant } from '../middleware/auth.js';
 import { HttpError } from '../services/housing.js';
 import { todayManila, isDateStr } from '../utils/dates.js';
@@ -29,7 +32,7 @@ function detectType(buf) {
   return null;
 }
 
-const FIELDS = ['legalName', 'dob', 'email', 'phone', 'govId', 'emergencyName', 'emergencyRelationship', 'emergencyPhone'];
+const FIELDS = ['legalName', 'dob', 'email', 'phone', 'govIdType', 'govIdNumber', 'emergencyName', 'emergencyRelationship', 'emergencyPhone'];
 const withName = (q) => q.populate('tenant', 'name');
 
 /* ---------- tenant ---------- */
@@ -39,10 +42,19 @@ router.get('/mine', requireTenant, async (req, res) => {
   res.json(await MoveIn.findOne({ tenant: req.user.id }));
 });
 
+// A tenant may only fill in the move-in form once they have a room (or a pending/approved
+// reservation for one)
+async function hasRoom(tenant) {
+  if (tenant.room) return true;
+  return !!(await Reservation.exists({ tenant: tenant._id, status: { $in: ['pending', 'approved'] } }));
+}
+
 // PUT /api/move-in/mine   multipart/form-data: text fields + optional file field "idFile"
 router.put('/mine', requireTenant, upload.single('idFile'), async (req, res) => {
   const tenant = await Tenant.findById(req.user.id);
   if (!tenant) throw new HttpError(404, 'Account not found');
+  if (!(await hasRoom(tenant)))
+    throw new HttpError(403, 'Reserve a room first. The move-in form opens once you have rented or reserved one');
 
   const f = Object.fromEntries(FIELDS.map((k) => [k, String(req.body[k] ?? '').trim()]));
   f.email = (f.email || tenant.email).toLowerCase();
@@ -51,12 +63,18 @@ router.put('/mine', requireTenant, upload.single('idFile'), async (req, res) => 
   if (req.body.agreed !== 'true') throw new HttpError(400, 'You must agree to the house rules and lease terms');
   for (const [key, label] of [
     ['legalName', 'Full legal name'],
-    ['govId', 'Government ID'],
     ['emergencyName', 'Emergency contact name'],
     ['emergencyPhone', 'Emergency contact phone'],
   ]) {
     if (!f[key]) throw new HttpError(400, `${label} is required`);
   }
+  f.phone = cleanPhone(f.phone, 'Phone number'); // any accepted form -> 0917 123 4567
+  const emergencyPhone = normalizePhone(f.emergencyPhone);
+  if (!emergencyPhone) throw new HttpError(400, 'Emergency contact phone must be a valid mobile number, e.g. 0917 123 4567');
+  f.emergencyPhone = emergencyPhone;
+  f.govId = readGovId(f.govIdType, f.govIdNumber);
+  delete f.govIdType;
+  delete f.govIdNumber;
   if (!isDateStr(f.dob) || f.dob < '1900-01-01' || f.dob >= todayManila())
     throw new HttpError(400, 'Enter a valid date of birth');
   if (!/^\S+@\S+\.\S+$/.test(f.email)) throw new HttpError(400, 'Enter a valid email address');

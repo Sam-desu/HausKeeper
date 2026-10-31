@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { sanitizePhoneInput, isValidPhone, PHONE_HINT } from "../utils/phone.js";
 
 const STATUS_MAP = {
   occupied: ["ok", "Occupied"],
@@ -72,5 +73,30 @@ export function Field({ label, hint, children }) {
       {children}
       {hint ? <div className="hint">{hint}</div> : null}
     </div>
+  );
+}
+/* Phone number input: only lets valid-looking characters in (digits, a leading +),
+   caps the length, and shows a hint once the user leaves the field with a bad number.
+   Use inside a .field; `onChange` receives the cleaned string (not the event). */
+export function PhoneInput({ value, onChange, placeholder = "0917 123 4567", ...rest }) {
+  const [touched, setTouched] = useState(false);
+  const bad = touched && value && !isValidPhone(value);
+  return (
+    <>
+      <input
+        {...rest}
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        maxLength={16}
+        placeholder={placeholder}
+        value={value}
+        className={bad ? "invalid" : undefined}
+        aria-invalid={bad ? "true" : undefined}
+        onChange={(e) => onChange(sanitizePhoneInput(e.target.value))}
+        onBlur={() => setTouched(true)}
+      />
+      {bad ? <div className="hint field-error">{PHONE_HINT}</div> : null}
+    </>
   );
 }
